@@ -1,3 +1,6 @@
 fastapi
 pydantic-settings
 uvicorn
+google-genai
+sqlalchemy 
+psycopg[binary]
