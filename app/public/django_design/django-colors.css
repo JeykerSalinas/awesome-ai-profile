@@ -1,0 +1,22 @@
+:root {
+  /* Django brand */
+  --django-red: #EB0808;
+  --django-deep-brown: #320808;
+  --django-cream: #FBEFCE;
+  --django-sand: #CCB68C;
+  --django-terracotta: #E56D58;
+  --django-burgundy: #571614;
+  --django-dark-red: #A0090A;
+  --django-paper-tan: #E1CFA8;
+
+  /* Semantic web tokens */
+  --color-primary: var(--django-red);
+  --color-primary-hover: var(--django-dark-red);
+  --color-accent: var(--django-terracotta);
+  --color-bg: var(--django-cream);
+  --color-bg-secondary: var(--django-paper-tan);
+  --color-surface: #FFF8E8;
+  --color-text: var(--django-deep-brown);
+  --color-text-secondary: var(--django-burgundy);
+  --color-border: var(--django-sand);
+}
