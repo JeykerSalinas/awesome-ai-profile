@@ -5,7 +5,7 @@ from routes.chat import router as chat_router
 import uvicorn
 
 from settings import get_settings
-import database
+# import database
 settings = get_settings()
 app = FastAPI()
 
