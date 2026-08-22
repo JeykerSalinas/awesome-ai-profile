@@ -1,6 +1,6 @@
-fastapi
-pydantic-settings
-uvicorn
-google-genai
-sqlalchemy 
-psycopg[binary]
+fastapi==0.141.1
+pydantic-settings==2.15.0
+uvicorn==0.52.4
+google-genai==2.19.0
+sqlalchemy==2.0.52
+psycopg[binary]==3.3.4

@@ -1,3 +1,6 @@
+// This file is auto-generated from backend/schemas/events.py.
+// Do not edit manually.
+
 export type MessageDeltaData = {
   text: string;
 };
@@ -9,14 +12,16 @@ export type MessageDeltaEvent = {
 
 export type DoneEvent = {
   event: "done";
-  data: {};
+  data?: {};
+};
+
+export type ErrorData = {
+  message: string;
 };
 
 export type ErrorEvent = {
   event: "error";
-  data: {
-    message: string;
-  };
+  data: ErrorData;
 };
 
 export type StreamEvent = MessageDeltaEvent | DoneEvent | ErrorEvent;

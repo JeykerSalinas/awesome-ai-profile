@@ -5,6 +5,7 @@ import { isStreamEvent } from '@/types/events'
 
 const message = ref('')
 const assistantMessage = ref('')
+const errorMessage = ref('')
 const isLoading = ref(false)
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
@@ -12,6 +13,7 @@ const sendMessage = async () => {
   if (!message.value.trim()) return
 
   assistantMessage.value = ''
+  errorMessage.value = ''
   isLoading.value = true
   try {
     const response = await fetch(`${apiBaseUrl}/chat/stream`, {
@@ -25,7 +27,8 @@ const sendMessage = async () => {
     })
 
     if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`)
+      const detail = await extractErrorMessage(response)
+      throw new Error(detail || `Request failed with status ${response.status}`)
     }
 
     if (!response.body) {
@@ -63,9 +66,29 @@ const sendMessage = async () => {
         handleStreamEvent(parsed)
       }
     }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Unexpected error'
   } finally {
     isLoading.value = false
   }
+}
+
+const extractErrorMessage = async (response: Response) => {
+  try {
+    const payload: unknown = await response.json()
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'detail' in payload &&
+      typeof payload.detail === 'string'
+    ) {
+      return payload.detail
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
 }
 
 const handleStreamEvent = (event: StreamEvent) => {
@@ -102,6 +125,14 @@ const handleStreamEvent = (event: StreamEvent) => {
     >
       {{ isLoading ? 'Thinking...' : 'Send' }}
     </button>
+
+    <div
+      v-if="errorMessage"
+      class="alert alert-danger mt-3"
+      role="alert"
+    >
+      {{ errorMessage }}
+    </div>
 
     <div
       v-if="assistantMessage"
