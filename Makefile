@@ -1,10 +1,11 @@
 SHELL := /bin/bash
 
-.PHONY: help install front back dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health
+.PHONY: help install back-install front back dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health
 
 help:
 	@echo "Available commands:"
 	@echo "  make install      Install frontend and backend dependencies"
+	@echo "  make back-install Install backend requirements into backend/.venv"
 	@echo "  make front        Start the Vite frontend dev server"
 	@echo "  make back         Start the FastAPI backend dev server"
 	@echo "  make dev          Start frontend and backend together"
@@ -19,6 +20,9 @@ help:
 install:
 	cd app && npm install
 	backend/.venv/bin/pip install -r backend/requirements.txt
+
+back-install:
+	cd backend && .venv/bin/pip install -r requirements.txt
 
 front:
 	cd app && npm run dev
