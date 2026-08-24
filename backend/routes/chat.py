@@ -3,8 +3,9 @@ from typing import AsyncIterator
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from agents.agent import AgentStreamEvent
 from schemas.chat import ChatRequest, ChatResponse
-from schemas.events import DoneEvent, ErrorData, ErrorEvent, MessageDeltaData, MessageDeltaEvent
+from schemas.events import DoneEvent, ErrorData, ErrorEvent, ImageData, ImageEvent, MessageDeltaData, MessageDeltaEvent
 from services.agents_service import generate_response, generate_response_stream
 
 
@@ -14,19 +15,16 @@ router = APIRouter(
 )
 
 
-async def stream_chat_events(first_chunk: str | None, stream: AsyncIterator[str]) -> AsyncIterator[str]:
+async def stream_chat_events(
+    first_chunk: AgentStreamEvent | None,
+    stream: AsyncIterator[AgentStreamEvent],
+) -> AsyncIterator[str]:
     try:
         if first_chunk is not None:
-            yield MessageDeltaEvent(
-                event="message_delta",
-                data=MessageDeltaData(text=first_chunk),
-            ).model_dump_json() + "\n"
+            yield serialize_stream_event(first_chunk)
 
         async for chunk in stream:
-            yield MessageDeltaEvent(
-                event="message_delta",
-                data=MessageDeltaData(text=chunk),
-            ).model_dump_json() + "\n"
+            yield serialize_stream_event(chunk)
 
         yield DoneEvent(event="done", data={}).model_dump_json() + "\n"
     except Exception as exc:
@@ -34,6 +32,19 @@ async def stream_chat_events(first_chunk: str | None, stream: AsyncIterator[str]
             event="error",
             data=ErrorData(message=str(exc)),
         ).model_dump_json() + "\n"
+
+
+def serialize_stream_event(event: AgentStreamEvent) -> str:
+    if event["type"] == "image":
+        return ImageEvent(
+            event="image",
+            data=ImageData(src=event["src"], alt=event["alt"]),
+        ).model_dump_json() + "\n"
+
+    return MessageDeltaEvent(
+        event="message_delta",
+        data=MessageDeltaData(text=event["text"]),
+    ).model_dump_json() + "\n"
 
 
 @router.post("", response_model=ChatResponse)

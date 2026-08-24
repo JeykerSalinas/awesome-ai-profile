@@ -1,9 +1,26 @@
 from collections.abc import AsyncIterator
+from typing import Literal, TypedDict
 
 from langchain.agents import create_agent
+from langchain_core.messages import ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from agents.tools import get_candidate_photo
 
 from settings import get_settings
+
+
+class AgentMessageDeltaEvent(TypedDict):
+    type: Literal["message_delta"]
+    text: str
+
+
+class AgentImageEvent(TypedDict):
+    type: Literal["image"]
+    src: str
+    alt: str
+
+
+AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent
 
 
 def get_agent():
@@ -19,7 +36,7 @@ def get_agent():
 
     return create_agent(
         model=model,
-        tools=[],
+        tools=[ get_candidate_photo ],
         system_prompt="You are Jeyker's professional AI representative. You are very funny. Only answer about jeyker when explictly ask you about him",
     )
 
@@ -43,7 +60,7 @@ async def ask_agent(message: str) -> str:
     return last_message.text
 
 
-async def stream_agent(message: str) -> AsyncIterator[str]:
+async def stream_agent(message: str) -> AsyncIterator[AgentStreamEvent]:
     agent = get_agent()
 
     async for token, metadata in agent.astream(
@@ -57,5 +74,19 @@ async def stream_agent(message: str) -> AsyncIterator[str]:
         },
         stream_mode="messages",
     ):
-        if token.text:
-            yield token.text
+        if isinstance(token, ToolMessage) and token.name == "get_candidate_photo":
+            src = str(token.text)
+            if src:
+                yield {
+                    "type": "image",
+                    "src": src,
+                    "alt": "Jeyker Salinas",
+                }
+            continue
+
+        text = str(token.text)
+        if text:
+            yield {
+                "type": "message_delta",
+                "text": text,
+            }

@@ -10,19 +10,21 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from pydantic import BaseModel
 
-from schemas.events import DoneEvent, ErrorData, ErrorEvent, MessageDeltaData, MessageDeltaEvent
+from schemas.events import DoneEvent, ErrorData, ErrorEvent, ImageData, ImageEvent, MessageDeltaData, MessageDeltaEvent
 
 
 MODEL_ORDER: list[type[BaseModel]] = [
     MessageDeltaData,
     MessageDeltaEvent,
+    ImageData,
+    ImageEvent,
     DoneEvent,
     ErrorData,
     ErrorEvent,
 ]
 
 UNION_NAME = "StreamEvent"
-UNION_MEMBERS = ["MessageDeltaEvent", "DoneEvent", "ErrorEvent"]
+UNION_MEMBERS = ["MessageDeltaEvent", "ImageEvent", "DoneEvent", "ErrorEvent"]
 
 
 def render_type(schema: dict[str, Any], defs: dict[str, Any]) -> str:
@@ -104,6 +106,14 @@ def render_guard() -> str:
 
   if (event === "error") {
     return !!data && typeof (data as { message?: unknown }).message === "string";
+  }
+
+  if (event === "image") {
+    return (
+      !!data &&
+      typeof (data as { src?: unknown }).src === "string" &&
+      typeof (data as { alt?: unknown }).alt === "string"
+    );
   }
 
   return event === "done" && !!data && typeof data === "object";
