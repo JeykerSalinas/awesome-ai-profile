@@ -11,6 +11,16 @@ class MessageDeltaEvent(BaseModel):
     data: MessageDeltaData
 
 
+class ImageData(BaseModel):
+    src: str
+    alt: str
+
+
+class ImageEvent(BaseModel):
+    event: Literal["image"]
+    data: ImageData
+
+
 class DoneEvent(BaseModel):
     event: Literal["done"]
     data: dict = {}
@@ -25,4 +35,4 @@ class ErrorEvent(BaseModel):
     data: ErrorData
 
 
-StreamEvent: TypeAlias = MessageDeltaEvent | DoneEvent | ErrorEvent
+StreamEvent: TypeAlias = MessageDeltaEvent | ImageEvent | DoneEvent | ErrorEvent
