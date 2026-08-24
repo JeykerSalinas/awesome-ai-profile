@@ -53,3 +53,12 @@ docker-back-health:
 clean:
 	find backend -type d -name "__pycache__" -prune -exec rm -rf {} +
 	find backend -type f -name "*.py[cod]" -delete
+
+deploy-back:
+	docker build -t awesome-ai-profile-api ./backend
+	docker tag awesome-ai-profile-api jeykeraiprofileacr.azurecr.io/awesome-ai-profile-api:latest
+	docker push jeykeraiprofileacr.azurecr.io/awesome-ai-profile-api:latest
+	az containerapp update \
+		--name awesome-ai-profile-api \
+		--resource-group awesome-ai-profile \
+		--image jeykeraiprofileacr.azurecr.io/awesome-ai-profile-api:latest
