@@ -1,6 +1,12 @@
 SHELL := /bin/bash
 
-.PHONY: help install back-install front back dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health
+-include .env.make
+
+IMAGE_NAME ?= app-backend
+IMAGE_TAG ?= latest
+ACR_LOGIN_SERVER ?= $(if $(ACR_NAME),$(ACR_NAME).azurecr.io)
+
+.PHONY: help install back-install front back dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health azure-login acr-login deploy-back guard-%
 
 help:
 	@echo "Available commands:"
@@ -16,6 +22,12 @@ help:
 	@echo "  make docker-back-build   Build the FastAPI backend Docker image"
 	@echo "  make docker-back-run     Run the FastAPI backend container with backend/.env"
 	@echo "  make docker-back-health  Check the backend /health endpoint"
+	@echo "  make azure-login        Login to Azure manually"
+	@echo "  make acr-login          Login to Azure Container Registry"
+	@echo "  make deploy-back        Build, push, and deploy the backend container"
+	@echo ""
+	@echo "Optional local config:"
+	@echo "  .env.make              Local Make variables for Azure/deploy settings"
 
 install:
 	cd app && npm install
@@ -46,10 +58,10 @@ build:
 	cd app && npm run build
 
 docker-back-build:
-	docker build -t awesome-ai-profile-api ./backend
+	docker build -t $(IMAGE_NAME) ./backend
 
 docker-back-run:
-	docker run --rm --env-file backend/.env -p 8000:8000 awesome-ai-profile-api
+	docker run --rm --env-file backend/.env -p 8000:8000 $(IMAGE_NAME)
 
 docker-back-health:
 	curl http://localhost:8000/health
@@ -58,11 +70,22 @@ clean:
 	find backend -type d -name "__pycache__" -prune -exec rm -rf {} +
 	find backend -type f -name "*.py[cod]" -delete
 
+azure-login:
+	az login
+
+guard-%:
+	@test -n "$($*)" || (echo "Missing required variable '$*'. Set it in .env.make or pass it to make." && exit 1)
+
+acr-login: guard-ACR_NAME
+	az acr login --name $(ACR_NAME)
+
+deploy-back: guard-ACR_NAME guard-RESOURCE_GROUP guard-CONTAINER_APP_NAME acr-login
+
 deploy-back:
-	docker build -t awesome-ai-profile-api ./backend
-	docker tag awesome-ai-profile-api jeykeraiprofileacr.azurecr.io/awesome-ai-profile-api:latest
-	docker push jeykeraiprofileacr.azurecr.io/awesome-ai-profile-api:latest
+	docker build -t $(IMAGE_NAME) ./backend
+	docker tag $(IMAGE_NAME) $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(IMAGE_TAG)
+	docker push $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(IMAGE_TAG)
 	az containerapp update \
-		--name awesome-ai-profile-api \
-		--resource-group awesome-ai-profile \
-		--image jeykeraiprofileacr.azurecr.io/awesome-ai-profile-api:latest
+		--name $(CONTAINER_APP_NAME) \
+		--resource-group $(RESOURCE_GROUP) \
+		--image $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(IMAGE_TAG)
