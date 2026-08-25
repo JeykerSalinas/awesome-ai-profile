@@ -1,5 +1,6 @@
-import { computed, ref } from 'vue'
+import { computed, watchEffect } from 'vue'
 import { en, es } from '@nuxt/ui/locale'
+import { useStorage } from '@vueuse/core'
 
 const translations = {
   en: {
@@ -29,6 +30,7 @@ const translations = {
     viewProject: 'View project',
     lightMode: 'Switch to light mode',
     darkMode: 'Switch to dark mode',
+    switchLanguage: 'Switch language to Spanish',
   },
   es: {
     documentTitle: 'Django IA · Jeyker Salinas',
@@ -57,6 +59,7 @@ const translations = {
     viewProject: 'Ver proyecto',
     lightMode: 'Cambiar al modo claro',
     darkMode: 'Cambiar al modo oscuro',
+    switchLanguage: 'Cambiar idioma a inglés',
   },
 } as const
 
@@ -78,11 +81,16 @@ const browserLanguages =
       ? navigator.languages
       : [navigator.language]
 
-const locale = ref<SupportedLocale>(resolveBrowserLocale(browserLanguages))
+const locale = useStorage<SupportedLocale>(
+  'django-preferred-language',
+  resolveBrowserLocale(browserLanguages),
+)
 
 if (typeof document !== 'undefined') {
-  document.documentElement.lang = locale.value
-  document.title = translations[locale.value].documentTitle
+  watchEffect(() => {
+    document.documentElement.lang = locale.value
+    document.title = translations[locale.value].documentTitle
+  })
 }
 
 export function useLocale() {

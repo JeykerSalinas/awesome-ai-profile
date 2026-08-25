@@ -11,7 +11,7 @@ import type { ProfileMessage } from '@/types/chat'
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 const input = ref('')
 const isDark = useDark()
-const { text } = useLocale()
+const { locale, text } = useLocale()
 
 const suggestionIcons = [
   'i-lucide-sparkles',
@@ -82,6 +82,16 @@ function respondToApproval(approvalId: string, approved: boolean) {
             <span class="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />
             {{ text.availableForWork }}
           </UBadge>
+          <UButton
+            icon="i-lucide-languages"
+            :label="locale.toUpperCase()"
+            :aria-label="text.switchLanguage"
+            :title="text.switchLanguage"
+            color="neutral"
+            variant="ghost"
+            class="rounded-full text-(--django-copy)"
+            @click="locale = locale === 'es' ? 'en' : 'es'"
+          />
           <UButton
             :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
             :aria-label="isDark ? text.lightMode : text.darkMode"
