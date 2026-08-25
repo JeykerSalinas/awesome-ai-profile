@@ -1,6 +1,8 @@
 # awesome-ai-profile
 > An AI-powered interactive professional profile and engineering portfolio.
 
+[Link to the platform](https://proud-mud-0ed95371e.7.azurestaticapps.net/)
+
 Instead of reading a static résumé, recruiters can talk to an AI assistant that understands Jeyker Salinas' professional background, projects, technical skills, education and engineering decisions.
 
 The goal of this repository is twofold:
