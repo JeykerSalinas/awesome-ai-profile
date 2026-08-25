@@ -79,6 +79,18 @@ The current agent uses LangChain's `create_agent`. An explicitly modeled LangGra
 
 AWS remains an alternative for future experimentation, but Azure is the deployment platform represented by the current repository.
 
+## Versioning and releases
+
+This project follows semantic versioning (`MAJOR.MINOR.PATCH`). The first functional chat release is **0.1.0**.
+
+- `develop` contains completed work that is being prepared for the next release.
+- A pull request from `develop` to `main` promotes that version to production.
+- Merging into `main` triggers the Azure Static Web Apps deployment workflow.
+- After the production deployment succeeds, tag the corresponding `main` commit as `v0.1.0`.
+- Use `0.1.1` for backward-compatible fixes, `0.2.0` for the next feature milestone, and `1.0.0` once the intended recruiter experience is stable.
+
+The application version is recorded in `app/package.json` and `app/package-lock.json`. Git tags should point to the production commit, not to an unmerged development branch.
+
 ## Local development
 
 Create the local environment files from the provided examples, configure `GOOGLE_API_KEY`, then use the Makefile targets:
