@@ -5,7 +5,7 @@ from typing import Literal, TypedDict
 from langchain.agents import create_agent
 from langchain_core.messages import ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from agents.tools import get_candidate_photo, get_profile_section, search_experience
+from agents.tools import build_search_documents_tool, get_candidate_photo, get_profile_section, search_experience
 
 from services.prompt_service import SupportedLocale, build_professional_system_prompt
 from settings import get_settings
@@ -30,7 +30,7 @@ class AgentSourceEvent(TypedDict):
 AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent | AgentSourceEvent
 
 
-def get_agent(locale: SupportedLocale = "en"):
+def get_agent(locale: SupportedLocale = "en", document_ids: list[str] | None = None):
     settings = get_settings()
 
     if not settings.google_api_key:
@@ -43,7 +43,7 @@ def get_agent(locale: SupportedLocale = "en"):
 
     return create_agent(
         model=model,
-        tools=[get_candidate_photo, get_profile_section, search_experience],
+        tools=[get_candidate_photo, get_profile_section, search_experience, build_search_documents_tool(document_ids)],
         system_prompt=build_professional_system_prompt(locale),
     )
 
@@ -70,8 +70,9 @@ async def ask_agent(message: str, locale: SupportedLocale = "en") -> str:
 async def stream_agent(
     messages: list[dict[str, str]],
     locale: SupportedLocale = "en",
+    document_ids: list[str] | None = None,
 ) -> AsyncIterator[AgentStreamEvent]:
-    agent = get_agent(locale)
+    agent = get_agent(locale, document_ids)
     emitted_sources: set[str] = set()
 
     async for token, metadata in agent.astream(
@@ -89,7 +90,7 @@ async def stream_agent(
                     }
                 continue
 
-            if token.name in {"get_profile_section", "search_experience"}:
+            if token.name in {"get_profile_section", "search_experience", "search_documents"}:
                 try:
                     payload = json.loads(str(token.text))
                 except (TypeError, ValueError):

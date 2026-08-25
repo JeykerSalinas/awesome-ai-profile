@@ -6,3 +6,7 @@ sqlalchemy==2.0.52
 psycopg[binary]==3.3.4
 langchain
 langchain-google-genai
+langchain-chroma
+langchain-text-splitters
+pypdf==6.6.0
+python-multipart==0.0.22

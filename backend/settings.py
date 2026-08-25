@@ -35,6 +35,12 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("DATABASE_URL"),
     )
+    vector_store_path: str = Field(default="data/chroma", validation_alias=AliasChoices("VECTOR_STORE_PATH"))
+    embedding_model: str = Field(default="models/gemini-embedding-001", validation_alias=AliasChoices("EMBEDDING_MODEL"))
+    rag_chunk_size: int = Field(default=900, validation_alias=AliasChoices("RAG_CHUNK_SIZE"))
+    rag_chunk_overlap: int = Field(default=150, validation_alias=AliasChoices("RAG_CHUNK_OVERLAP"))
+    rag_result_limit: int = Field(default=5, validation_alias=AliasChoices("RAG_RESULT_LIMIT"))
+    max_pdf_size_mb: int = Field(default=10, validation_alias=AliasChoices("MAX_PDF_SIZE_MB"))
 
 
 @lru_cache
