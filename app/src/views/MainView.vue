@@ -16,7 +16,7 @@ const isUploading = ref(false);
 const uploadError = ref("");
 const isDark = useDark();
 const { locale, text } = useLocale();
-
+// const messages = ref([{"parts":[{"type":"text","text":"Why should we hire Jeyker?"}],"id":"U3u32FLC4XP4T2T2","role":"user","metadata":"__vue_devtool_undefined__"},{"id":"assistant-aea52d36459942af8fefb122effb93a0","metadata":"__vue_devtool_undefined__","role":"assistant","parts":[{"type":"step-start"},{"type":"data-source","id":"source-b66cf3d921e74cf8b19eb2d03ab0a2dc","data":{"path":"knowledge/profile.json"}},{"type":"text","text":"Jeyker Salinas is a Software Engineer who specializes in building high-quality, product-oriented applications. You should consider him for your team because he brings a unique combination of expertise that bridges modern web development and practical Artificial Intelligence.\n\nHere are the key reasons why Jeyker is a strong candidate:\n\n*   **Frontend Expertise:** He has a deep focus on frontend engineering, specifically using **Vue.js** and **TypeScript** to create scalable and maintainable architectures.\n*   **AI & RAG Integration:** Jeyker is highly proficient in developing conversational interfaces for Large Language Models (LLMs) and implementing **Retrieval-Augmented Generation (RAG)** applications.\n*   **Full-Stack Capability:** He is experienced in backend integration, particularly with **Python and FastAPI**, allowing him to work effectively across the stack.\n*   **Product Mindset:** He is not just focused on writing code; he is committed to delivering software that is user-focused and aligned with product goals.\n\nIf you are looking for an engineer who can translate complex AI capabilities into intuitive, reliable web interfaces, Jeyker would be a valuable addition to your project.","providerMetadata":"__vue_devtool_undefined__","state":"done"}]}])
 const suggestionIcons = [
   "i-lucide-sparkles",
   "i-lucide-braces",
@@ -107,7 +107,7 @@ function removeDocument(documentId: string) {
 <template>
   <main class="min-h-dvh px-3 py-3 sm:px-6 sm:py-5">
     <section
-      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl flex-col overflow-hidden rounded-[5px] border border-(--django-border) bg-(--django-surface) shadow-[0_28px_100px_-45px_rgba(50,8,8,0.35)] transition-colors sm:min-h-[calc(100dvh-2.5rem)]"
+      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl max-h-1 flex-col overflow-hidden rounded-[5px] border border-(--django-border) bg-(--django-surface) shadow-[0_28px_100px_-45px_rgba(50,8,8,0.35)] transition-colors sm:min-h-[calc(100dvh-2.5rem)]"
     >
       <header
         class="flex items-center justify-between gap-3 border-b border-(--django-border) px-5 py-4 sm:px-8"
@@ -162,7 +162,7 @@ function removeDocument(documentId: string) {
         </div>
       </header>
 
-      <div class="relative flex min-h-0 flex-1 flex-col">
+      <div class="relative flex min-h-0 flex-1 flex-col overflow-auto">
         <div
           v-if="!hasMessages"
           class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-14 text-center sm:px-10"
@@ -247,7 +247,7 @@ function removeDocument(documentId: string) {
         </UContainer>
 
         <div
-          class="sticky bottom-0 mx-auto w-full max-w-4xl px-4 pb-4 pt-2 sm:px-8 sm:pb-6"
+          class="sticky bottom-0 z-10 mx-auto w-full max-w-4xl bg-linear-to-b from-(--django-surface) via-(--django-surface)/50 to-(--django-surface)/0 px-4 pb-2 pt-6 backdrop-blur-[3px] sm:px-8 sm:pb-2"
         >
           <UAlert
             v-if="error"
