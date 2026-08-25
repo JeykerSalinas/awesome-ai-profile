@@ -16,8 +16,8 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - Curated professional knowledge covering Jeyker's profile, employers, education, skills and projects.
 - `get_profile_section` and `search_experience` tools with English/Spanish keyword retrieval.
 - Answers grounded in verified knowledge files, with source references rendered directly in the chat.
-- Semantic RAG with Gemini embeddings and an embedded, persistent ChromaDB vector store.
-- PDF upload and session-scoped retrieval across CVs, job offers, letters and other text-based documents.
+- Semantic RAG with Gemini embeddings and separate persistent-profile and memory-only visitor stores.
+- Temporary PDF upload and session-scoped retrieval across CVs, job offers, letters and other text-based documents.
 - The selected interface language is sent to the agent, allowing Spanish or English answers from one English-language knowledge base.
 - Extensible typed message parts for photos, technology badges and project cards.
 - An approval component prepared for human-in-the-loop tools; an actual approval-required backend tool is still pending.
@@ -49,8 +49,10 @@ flowchart TD
     Agent --> Gemini[Google Gemini]
     Agent --> Knowledge[Curated professional knowledge]
     Agent --> RAG[Semantic document retrieval]
-    RAG --> Chroma[Embedded ChromaDB]
-    Gemini -->|Embeddings| Chroma
+    RAG --> ProfileStore[Persistent profile ChromaDB]
+    RAG --> VisitorStore[In-memory visitor ChromaDB]
+    Gemini -->|Embeddings| ProfileStore
+    Gemini -->|Embeddings| VisitorStore
     Frontend -->|Upload PDF| API
     Agent --> Photo[get_candidate_photo]
     Knowledge -->|Verified source references| Frontend
@@ -77,6 +79,7 @@ The project uses Nuxt UI as a Vue component library. It does **not** require Nux
 - `POST /chat` for a regular JSON response.
 - `POST /chat/stream` for the AI SDK UI Message Stream Protocol.
 - `POST /documents` for text-based PDF upload, chunking and semantic indexing.
+- `DELETE /documents/{document_id}` to immediately discard an uploaded document's in-memory chunks.
 - `GET /health` for a basic health check.
 - LangChain agent backed by Google Gemini.
 - English-language JSON/Markdown knowledge files loaded by typed profile and experience tools.
@@ -96,12 +99,12 @@ The system does not require PDFs to share a common structure. A CV, an informal 
 1. **Ingestion:** `POST /documents` validates a PDF and extracts selectable text from each page with `pypdf`.
 2. **Chunking:** LangChain's `RecursiveCharacterTextSplitter` divides each page into overlapping pieces. Defaults are 900 characters per chunk with a 150-character overlap.
 3. **Embeddings:** Google's `gemini-embedding-001` transforms every chunk into a vector representing its meaning.
-4. **Storage:** ChromaDB saves the vector, original text and metadata such as document ID, filename, document type, page and scope.
+4. **Storage:** Visitor document vectors, text chunks and metadata stay exclusively in an in-memory ChromaDB client; verified profile knowledge uses a separate persistent ChromaDB client.
 5. **Profile seeding:** Existing JSON and Markdown knowledge files are indexed automatically the first time RAG is used. Stable content hashes prevent unchanged documents from being embedded again.
-6. **Retrieval:** When the agent calls `search_documents`, the user's question is embedded and Chroma retrieves the most semantically relevant chunks.
+6. **Retrieval:** When the agent calls `search_documents`, the persistent profile and authorized temporary visitor documents are searched separately, then their most relevant results are combined.
 7. **Generation:** Gemini receives those chunks through the LangChain tool and answers using the evidence. Retrieved filenames are streamed back to the UI as sources.
 
-Every chat sends only its currently attached document IDs. Metadata filters allow the shared verified profile plus those specific documents, preventing another visitor's uploaded PDF from appearing in the conversation. Uploaded text is treated as untrusted evidence, not as instructions.
+Every chat sends only its currently attached document IDs. Metadata filters limit the temporary collection to those specific documents, preventing another visitor's uploaded PDF from appearing in the conversation. Uploaded text is treated as untrusted evidence, not as instructions. Temporary documents are deleted immediately when removed from the chat and expire after 30 minutes of inactivity by default.
 
 PDFs must contain selectable text. Image-only or scanned PDFs need OCR, which is not included in this version. Uploads are limited to 10 MB by default.
 
@@ -117,9 +120,9 @@ Supported document types are `cv`, `job_offer`, `letter` and `other`. The browse
 
 ### Storage, Docker and Azure
 
-ChromaDB runs inside the existing backend process: it does not require PostgreSQL, pgvector, a second container or a separate cloud service. Its index is written to `VECTOR_STORE_PATH`, which defaults to `data/chroma`.
+ChromaDB runs inside the existing backend process: it does not require PostgreSQL, pgvector, a second container or a separate cloud service. Only the verified professional-profile index is written to `VECTOR_STORE_PATH`, which defaults to `data/chroma`. Visitor PDFs are extracted into RAM, their vectors are stored through `chromadb.EphemeralClient()`, and neither their original PDF nor their indexed chunks are saved to the persistent volume.
 
-For local Docker persistence, mount a volume:
+For local persistence of the professional profile only, mount a Docker volume:
 
 ```bash
 docker run --rm --env-file backend/.env \
@@ -128,9 +131,9 @@ docker run --rm --env-file backend/.env \
   -p 8000:8000 app-backend
 ```
 
-Without a persistent volume, uploaded PDFs and their vectors disappear when a container is replaced. The bundled professional knowledge can always be rebuilt automatically, but durable uploads in Azure Container Apps require an Azure Files mount or a future external vector database.
+Without a persistent volume, the bundled professional-profile index is rebuilt automatically when the backend needs it. Visitor uploads are intentionally never durable: they disappear after `UPLOAD_TTL_MINUTES` of inactivity, when explicitly removed, or when the backend process restarts. Multiple backend replicas would require sticky sessions or a future shared temporary store with automatic expiration.
 
-Embedding calls consume the configured Google API quota. Each unchanged bundled document is indexed once per persistent Chroma store, while each uploaded PDF is indexed when uploaded; every semantic search also embeds the search query. Retrieval reduces generation-token usage because the model receives only selected chunks instead of complete documents.
+Embedding calls consume the configured Google API quota. Each unchanged bundled document is indexed once per persistent profile store, while each temporary PDF is indexed when uploaded; searches may embed the query once for the profile and once for the temporary collection. Retrieval reduces generation-token usage because the model receives only selected chunks instead of complete documents.
 
 ### Infrastructure and deployment
 

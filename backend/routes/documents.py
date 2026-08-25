@@ -31,3 +31,9 @@ def upload_document(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_document(document_id: str) -> None:
+    if not get_vector_store_service().remove_upload(document_id):
+        raise HTTPException(status_code=404, detail="Document was not found or has already expired.")

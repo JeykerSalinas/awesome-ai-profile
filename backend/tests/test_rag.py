@@ -25,23 +25,31 @@ class VectorStoreTests(unittest.TestCase):
             rag_chunk_size=120,
             rag_chunk_overlap=20,
             rag_result_limit=5,
+            upload_ttl_minutes=30,
         )
-        self.store = MagicMock()
-        self.store.get.return_value = {"ids": []}
+        self.profile_store = MagicMock()
+        self.profile_store.get.return_value = {"ids": []}
+        self.upload_store = MagicMock()
         self.settings_patch = patch("services.vector_store_service.get_settings", return_value=self.settings)
-        self.chroma_patch = patch("services.vector_store_service.Chroma", return_value=self.store)
+        self.chroma_patch = patch(
+            "services.vector_store_service.Chroma",
+            side_effect=[self.profile_store, self.upload_store],
+        )
         self.embeddings_patch = patch("services.vector_store_service.GoogleGenerativeAIEmbeddings")
+        self.ephemeral_patch = patch("services.vector_store_service.chromadb.EphemeralClient")
         self.settings_patch.start()
         self.chroma_patch.start()
         self.embeddings_patch.start()
+        self.ephemeral_patch.start()
         self.addCleanup(self.settings_patch.stop)
         self.addCleanup(self.chroma_patch.stop)
         self.addCleanup(self.embeddings_patch.stop)
+        self.addCleanup(self.ephemeral_patch.stop)
         self.addCleanup(self.temporary_directory.cleanup)
         self.service = VectorStoreService()
 
     def test_indexes_existing_json_and_markdown_knowledge_with_metadata(self) -> None:
-        call = self.store.add_documents.call_args
+        call = self.profile_store.add_documents.call_args
         documents = call.kwargs["documents"]
         sources = {document.metadata["source"] for document in documents}
         self.assertIn("knowledge/profile.json", sources)
@@ -49,11 +57,11 @@ class VectorStoreTests(unittest.TestCase):
         self.assertTrue(all(document.metadata["scope"] == "profile" for document in documents))
 
     def test_skips_existing_profile_embeddings(self) -> None:
-        known_ids = self.store.add_documents.call_args.kwargs["ids"]
-        self.store.reset_mock()
-        self.store.get.return_value = {"ids": known_ids}
+        known_ids = self.profile_store.add_documents.call_args.kwargs["ids"]
+        self.profile_store.reset_mock()
+        self.profile_store.get.return_value = {"ids": known_ids}
         self.service._ensure_profile_knowledge()
-        self.store.add_documents.assert_not_called()
+        self.profile_store.add_documents.assert_not_called()
 
     def test_ingests_heterogeneous_pdf_with_page_and_document_type(self) -> None:
         pages = [SimpleNamespace(extract_text=lambda: "We need a Vue engineer with RAG experience.")]
@@ -62,10 +70,12 @@ class VectorStoreTests(unittest.TestCase):
 
         self.assertEqual(result.document_type, "job_offer")
         self.assertEqual(result.pages, 1)
-        documents = self.store.add_documents.call_args.args[0]
+        documents = self.upload_store.add_documents.call_args.args[0]
         self.assertEqual(documents[0].metadata["page"], 1)
         self.assertEqual(documents[0].metadata["document_type"], "job_offer")
         self.assertEqual(documents[0].metadata["document_id"], result.id)
+        self.assertEqual(self.profile_store.add_documents.call_count, 1)
+        self.assertIn(result.id, self.service.upload_expirations)
 
     def test_rejects_scanned_pdfs_without_selectable_text(self) -> None:
         pages = [SimpleNamespace(extract_text=lambda: "")]
@@ -74,18 +84,33 @@ class VectorStoreTests(unittest.TestCase):
                 self.service.ingest_pdf(b"%PDF-1.4", "scan.pdf", "other")
 
     def test_retrieval_is_limited_to_profile_and_current_chat_documents(self) -> None:
-        self.store.similarity_search_with_relevance_scores.return_value = []
+        self.profile_store.similarity_search_with_relevance_scores.return_value = []
+        self.upload_store.similarity_search_with_relevance_scores.return_value = []
+        self.service.upload_expirations["my-document"] = float("inf")
         self.service.search("Does Jeyker match this role?", ["my-document"])
-        query_filter = self.store.similarity_search_with_relevance_scores.call_args.kwargs["filter"]
-        self.assertEqual(query_filter, {
-            "$or": [{"scope": {"$eq": "profile"}}, {"document_id": {"$eq": "my-document"}}]
-        })
+        query_filter = self.upload_store.similarity_search_with_relevance_scores.call_args.kwargs["filter"]
+        self.assertEqual(query_filter, {"document_id": {"$in": ["my-document"]}})
+        self.profile_store.similarity_search_with_relevance_scores.assert_called_once()
 
     def test_retrieval_without_uploads_excludes_all_uploaded_documents(self) -> None:
-        self.store.similarity_search_with_relevance_scores.return_value = []
+        self.profile_store.similarity_search_with_relevance_scores.return_value = []
         self.service.search("Vue and TypeScript")
-        query_filter = self.store.similarity_search_with_relevance_scores.call_args.kwargs["filter"]
-        self.assertEqual(query_filter, {"scope": {"$eq": "profile"}})
+        self.profile_store.similarity_search_with_relevance_scores.assert_called_once()
+        self.upload_store.similarity_search_with_relevance_scores.assert_not_called()
+
+    def test_expired_documents_are_deleted_from_memory(self) -> None:
+        self.profile_store.similarity_search_with_relevance_scores.return_value = []
+        self.service.upload_expirations["expired-document"] = 0
+        self.service.search("Compare the old offer", ["expired-document"])
+        self.upload_store.delete.assert_called_once_with(where={"document_id": "expired-document"})
+        self.upload_store.similarity_search_with_relevance_scores.assert_not_called()
+        self.assertNotIn("expired-document", self.service.upload_expirations)
+
+    def test_removing_document_deletes_its_temporary_vectors(self) -> None:
+        self.service.upload_expirations["document-to-delete"] = float("inf")
+        self.assertTrue(self.service.remove_upload("document-to-delete"))
+        self.upload_store.delete.assert_called_once_with(where={"document_id": "document-to-delete"})
+        self.assertNotIn("document-to-delete", self.service.upload_expirations)
 
 
 class DocumentUploadEndpointTests(unittest.TestCase):
@@ -124,6 +149,21 @@ class DocumentUploadEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertIn("OCR", response.json()["detail"])
 
+    def test_deletes_temporary_document_when_removed_from_chat(self) -> None:
+        service = MagicMock()
+        service.remove_upload.return_value = True
+        with patch("routes.documents.get_vector_store_service", return_value=service):
+            response = self.client.delete("/documents/document-123")
+        self.assertEqual(response.status_code, 204)
+        service.remove_upload.assert_called_once_with("document-123")
+
+    def test_reports_already_expired_document(self) -> None:
+        service = MagicMock()
+        service.remove_upload.return_value = False
+        with patch("routes.documents.get_vector_store_service", return_value=service):
+            response = self.client.delete("/documents/missing")
+        self.assertEqual(response.status_code, 404)
+
 
 class DocumentScopedChatTests(unittest.TestCase):
     def test_preserves_document_ids_for_retrieval(self) -> None:
@@ -136,7 +176,7 @@ class DocumentScopedChatTests(unittest.TestCase):
 
 
 class RealChromaIntegrationTests(unittest.TestCase):
-    def test_indexes_a_real_pdf_and_retrieves_it_from_persistent_chroma(self) -> None:
+    def test_indexes_real_pdf_only_in_memory_while_profile_persists(self) -> None:
         class LocalEmbeddings:
             def embed_documents(self, documents):
                 return [self.embed_query(document) for document in documents]
@@ -169,17 +209,23 @@ class RealChromaIntegrationTests(unittest.TestCase):
                 rag_chunk_size=900,
                 rag_chunk_overlap=150,
                 rag_result_limit=25,
+                upload_ttl_minutes=30,
             )
             with patch("services.vector_store_service.get_settings", return_value=settings):
                 with patch("services.vector_store_service.GoogleGenerativeAIEmbeddings", return_value=LocalEmbeddings()):
                     service = VectorStoreService()
                     uploaded = service.ingest_pdf(buffer.getvalue(), "real-job-offer.pdf", "job_offer")
                     results = service.search("Vue engineer Python RAG", [uploaded.id])
+                    persistent_uploads = service.profile_store.get(
+                        where={"scope": {"$eq": "upload"}},
+                        include=[],
+                    )
 
             matching = [item for item in results["results"] if item["filename"] == "real-job-offer.pdf"]
             self.assertEqual(len(matching), 1)
             self.assertEqual(matching[0]["page"], 1)
             self.assertIn("Vue engineer", matching[0]["content"])
+            self.assertEqual(persistent_uploads["ids"], [])
             self.assertTrue((Path(directory) / "chroma" / "chroma.sqlite3").is_file())
 
 

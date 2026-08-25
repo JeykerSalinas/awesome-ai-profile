@@ -98,6 +98,9 @@ async function uploadDocument(event: Event) {
 
 function removeDocument(documentId: string) {
   uploadedDocuments.value = uploadedDocuments.value.filter((document) => document.id !== documentId);
+  void fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
+    method: "DELETE",
+  }).catch(() => undefined);
 }
 </script>
 
