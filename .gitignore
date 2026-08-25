@@ -5,6 +5,7 @@ backend/.venv
 backend/.env
 *__pycache__/
 backend/*.py[cod]
+backend/data/
 
 # Node / frontend
 app/logs
@@ -37,3 +38,8 @@ app/*.env*
 # Editor files inside app
 app/.vscode/*
 !app/.vscode/extensions.json
+
+
+# Generated Nuxt UI / Vue type declarations
+app/auto-imports.d.ts
+app/components.d.ts

@@ -1,0 +1,64 @@
+{
+  "positions": [
+    {
+      "id": "arttac-solutions",
+      "role": "Frontend Engineer",
+      "organization": "Arttac Solutions",
+      "location": "Nuremberg, Germany",
+      "start_date": "2025-04",
+      "end_date": "2026-05",
+      "summary": "Developed frontend interfaces for AI-powered platforms and conversational systems based on large language models.",
+      "responsibilities": [
+        "Built web interfaces with Vue.js and TypeScript.",
+        "Integrated conversational systems with backend APIs.",
+        "Improved frontend performance, maintainability and user experience."
+      ],
+      "technologies": ["Vue.js", "TypeScript", "LLMs", "REST APIs"]
+    },
+    {
+      "id": "udit-ai-internship",
+      "role": "AI Engineering Intern",
+      "organization": "Universidad de Diseño, Innovación y Tecnología - Department of History",
+      "location": "Madrid, Spain",
+      "start_date": "2025-06",
+      "end_date": "2025-07",
+      "summary": "Designed and implemented an educational application using Retrieval-Augmented Generation to query academic content.",
+      "responsibilities": [
+        "Integrated large language models into an educational application.",
+        "Contributed to frontend and backend development.",
+        "Developed information retrieval pipelines for academic content."
+      ],
+      "technologies": ["RAG", "LLMs", "Python", "Information Retrieval"]
+    },
+    {
+      "id": "energia-latina",
+      "role": "Software Engineer",
+      "organization": "Energía Latina S.A.",
+      "location": "Santiago, Chile",
+      "start_date": "2022-11",
+      "end_date": "2024-08",
+      "summary": "Designed and developed the frontend architecture of an operational monitoring and real-time data visualization platform.",
+      "responsibilities": [
+        "Designed the frontend architecture for an operational platform.",
+        "Implemented real-time dashboards and data visualizations.",
+        "Developed billing tools and reporting functionality."
+      ],
+      "technologies": ["Vue.js", "JavaScript", "Data Visualization", "Dashboards"]
+    },
+    {
+      "id": "epistemonikos",
+      "role": "Frontend Developer",
+      "organization": "Fundación Epistemonikos",
+      "location": "Santiago, Chile",
+      "start_date": "2022-05",
+      "end_date": "2022-11",
+      "summary": "Developed and maintained a web platform for classifying evidence-based medical academic documents.",
+      "responsibilities": [
+        "Implemented new frontend features for medical document classification.",
+        "Optimized application performance.",
+        "Resolved production incidents and maintained existing functionality."
+      ],
+      "technologies": ["Vue.js", "JavaScript", "Web Applications", "Medical Evidence"]
+    }
+  ]
+}

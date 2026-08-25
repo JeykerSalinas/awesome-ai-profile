@@ -46,11 +46,21 @@ async def stream_ui_messages(
                 yield encode_sse_event({"type": "text-end", "id": text_id})
                 text_id = None
 
+            if event["type"] == "image":
+                yield encode_sse_event(
+                    {
+                        "type": "data-candidate-photo",
+                        "id": f"photo-{uuid4().hex}",
+                        "data": {"src": event["src"], "alt": event["alt"]},
+                    }
+                )
+                continue
+
             yield encode_sse_event(
                 {
-                    "type": "data-candidate-photo",
-                    "id": f"photo-{uuid4().hex}",
-                    "data": {"src": event["src"], "alt": event["alt"]},
+                    "type": "data-source",
+                    "id": f"source-{uuid4().hex}",
+                    "data": {"path": event["path"]},
                 }
             )
 

@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class ChatRequest(BaseModel):
     message: str
+    locale: Literal["en", "es"] = "en"
 
 
 class ChatResponse(BaseModel):
@@ -40,8 +41,10 @@ class ChatStreamRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str | None = None
+    locale: Literal["en", "es"] = "en"
     messages: list[UIChatMessage] = Field(default_factory=list)
     message: str | None = None
+    documents: list[str] = Field(default_factory=list, max_length=10)
 
     @model_validator(mode="after")
     def validate_messages(self) -> "ChatStreamRequest":
