@@ -1,20 +1,30 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useChat } from '@ai-sdk/vue'
+import { useDark } from '@vueuse/core'
 import { DefaultChatTransport } from 'ai'
 
 import ChatMessageContent from '@/components/chat/ChatMessageContent.vue'
+import { useLocale } from '@/composables/useLocale'
 import type { ProfileMessage } from '@/types/chat'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 const input = ref('')
+const isDark = useDark()
+const { text } = useLocale()
 
-const suggestions = [
-  { icon: 'i-lucide-sparkles', label: 'Why should we hire Jeyker?' },
-  { icon: 'i-lucide-braces', label: 'What has he built with Vue and TypeScript?' },
-  { icon: 'i-lucide-brain-circuit', label: 'Tell me about his AI experience.' },
-  { icon: 'i-lucide-camera', label: 'Show me a picture of Jeyker.' },
+const suggestionIcons = [
+  'i-lucide-sparkles',
+  'i-lucide-braces',
+  'i-lucide-brain-circuit',
+  'i-lucide-camera',
 ]
+const suggestions = computed(() =>
+  text.value.suggestions.map((label, index) => ({
+    icon: suggestionIcons[index] ?? 'i-lucide-message-circle',
+    label,
+  })),
+)
 
 const {
   messages,
@@ -53,9 +63,9 @@ function respondToApproval(approvalId: string, approved: boolean) {
 <template>
   <main class="min-h-dvh px-3 py-3 sm:px-6 sm:py-5">
     <section
-      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-stone-200/80 bg-white/75 shadow-[0_28px_100px_-45px_rgba(50,8,8,0.35)] backdrop-blur sm:min-h-[calc(100dvh-2.5rem)]"
+      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-(--django-border) bg-(--django-surface) shadow-[0_28px_100px_-45px_rgba(50,8,8,0.35)] transition-colors sm:min-h-[calc(100dvh-2.5rem)]"
     >
-      <header class="flex items-center justify-between border-b border-stone-200/80 px-5 py-4 sm:px-8">
+      <header class="flex items-center justify-between gap-3 border-b border-(--django-border) px-5 py-4 sm:px-8">
         <div class="flex min-w-0 items-center gap-3">
           <img
             src="/django_design/django-app-icon-dark.svg"
@@ -63,14 +73,25 @@ function respondToApproval(approvalId: string, approved: boolean) {
             class="size-11 rounded-2xl"
           />
           <div>
-            <p class="text-sm font-semibold tracking-tight text-stone-900">Django AI</p>
-            <p class="text-xs text-stone-500">Jeyker's professional sidekick</p>
+            <p class="text-sm font-semibold tracking-tight text-(--django-heading)">Django AI</p>
+            <p class="text-xs text-(--django-muted)">{{ text.assistantDescription }}</p>
           </div>
         </div>
-        <UBadge color="success" variant="subtle" class="rounded-full px-3 py-1">
-          <span class="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />
-          Available for work
-        </UBadge>
+        <div class="flex items-center gap-2 sm:gap-3">
+          <UBadge color="success" variant="subtle" class="hidden rounded-full px-3 py-1 sm:inline-flex">
+            <span class="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />
+            {{ text.availableForWork }}
+          </UBadge>
+          <UButton
+            :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
+            :aria-label="isDark ? text.lightMode : text.darkMode"
+            :title="isDark ? text.lightMode : text.darkMode"
+            color="neutral"
+            variant="ghost"
+            class="rounded-full text-(--django-copy)"
+            @click="isDark = !isDark"
+          />
+        </div>
       </header>
 
       <div class="relative flex min-h-0 flex-1 flex-col">
@@ -78,30 +99,29 @@ function respondToApproval(approvalId: string, approved: boolean) {
           v-if="!hasMessages"
           class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-14 text-center sm:px-10"
         >
-          <div class="mx-auto mb-7 grid size-20 place-items-center rounded-[1.75rem] bg-[#fbefce]">
+          <div class="mx-auto mb-7 grid size-20 place-items-center rounded-[1.75rem] bg-(--django-surface-soft)">
             <img src="/django_design/django-app-icon-dark.svg" alt="Django" class="size-14" />
           </div>
           <UBadge color="primary" variant="subtle" class="mx-auto mb-4 rounded-full px-3 py-1">
-            Interactive AI portfolio
+            {{ text.portfolioBadge }}
           </UBadge>
-          <h1 class="text-balance text-4xl font-semibold tracking-tight text-stone-900 sm:text-5xl">
-            Meet Jeyker, <span class="text-primary">through Django.</span>
+          <h1 class="text-balance text-4xl font-semibold tracking-tight text-(--django-heading) sm:text-5xl">
+            {{ text.greeting }} <span class="text-primary">{{ text.greetingHighlight }}</span>
           </h1>
-          <p class="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-stone-600">
-            Ask anything about his engineering experience, AI projects, favorite technologies,
-            or why this résumé has its own canine assistant.
+          <p class="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-(--django-copy)">
+            {{ text.introduction }}
           </p>
           <div class="mt-10 grid gap-3 text-left sm:grid-cols-2">
             <button
               v-for="suggestion in suggestions"
               :key="suggestion.label"
               type="button"
-              class="group flex items-center gap-3 rounded-2xl border border-stone-200 bg-white/80 px-4 py-4 text-sm text-stone-700 transition hover:border-red-200 hover:bg-red-50/50"
+              class="group flex items-center gap-3 rounded-2xl border border-(--django-border) bg-(--django-surface) px-4 py-4 text-sm text-(--django-copy) transition hover:border-primary hover:bg-(--django-surface-soft)"
               @click="sendSuggestion(suggestion.label)"
             >
               <UIcon
                 :name="suggestion.icon"
-                class="size-5 shrink-0 text-stone-400 transition group-hover:text-primary"
+                class="size-5 shrink-0 text-(--django-muted) transition group-hover:text-primary"
               />
               <span>{{ suggestion.label }}</span>
             </button>
@@ -124,9 +144,9 @@ function respondToApproval(approvalId: string, approved: boolean) {
               />
             </template>
             <template #indicator>
-              <div class="flex items-center gap-2 text-stone-500">
+              <div class="flex items-center gap-2 text-(--django-muted)">
                 <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin text-primary" />
-                <UChatShimmer text="Django is thinking..." class="text-sm" />
+                <UChatShimmer :text="text.thinking" class="text-sm" />
               </div>
             </template>
           </UChatMessages>
@@ -144,16 +164,16 @@ function respondToApproval(approvalId: string, approved: boolean) {
           <UChatPrompt
             v-model="input"
             :error="error"
-            placeholder="Ask Django about Jeyker..."
+            :placeholder="text.placeholder"
             color="neutral"
             variant="subtle"
-            class="rounded-3xl border border-stone-200 bg-white shadow-lg shadow-stone-200/40"
+            class="rounded-3xl border border-(--django-border) bg-(--django-surface) shadow-lg shadow-black/10"
             @submit="submitMessage"
           >
             <template #footer>
-              <span class="flex items-center gap-1.5 text-xs text-stone-500">
+              <span class="flex items-center gap-1.5 text-xs text-(--django-muted)">
                 <UIcon name="i-lucide-sparkles" class="size-3.5 text-primary" />
-                Powered by Gemini & LangChain
+                {{ text.poweredBy }}
               </span>
               <UChatPromptSubmit
                 :status="status"
@@ -164,8 +184,8 @@ function respondToApproval(approvalId: string, approved: boolean) {
               />
             </template>
           </UChatPrompt>
-          <p class="mt-3 text-center text-xs text-stone-400">
-            Built with Vue 3, Nuxt UI, FastAPI and the AI SDK.
+          <p class="mt-3 text-center text-xs text-(--django-muted)">
+            {{ text.builtWith }}
           </p>
         </div>
       </div>

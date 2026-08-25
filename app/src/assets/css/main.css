@@ -8,11 +8,32 @@
   --color-django-cream: #fbefce;
   --color-django-sand: #ccb68c;
   --color-django-terracotta: #e56d58;
+  --color-django-burgundy: #571614;
+  --color-django-paper: #e1cfa8;
 }
 
 :root {
   --ui-primary: var(--color-django-red);
   --ui-container: 76rem;
+  --django-page: var(--color-django-cream);
+  --django-surface: #fff8e8;
+  --django-surface-soft: var(--color-django-paper);
+  --django-heading: var(--color-django-brown);
+  --django-copy: var(--color-django-burgundy);
+  --django-muted: #816a4d;
+  --django-border: var(--color-django-sand);
+  color-scheme: light;
+}
+
+html.dark {
+  --django-page: var(--color-django-brown);
+  --django-surface: var(--color-django-burgundy);
+  --django-surface-soft: #41100e;
+  --django-heading: var(--color-django-cream);
+  --django-copy: var(--color-django-paper);
+  --django-muted: var(--color-django-sand);
+  --django-border: #75312a;
+  color-scheme: dark;
 }
 
 html,
@@ -23,11 +44,12 @@ body,
 
 body {
   margin: 0;
-  color: var(--color-django-brown);
+  color: var(--django-copy);
   background:
     radial-gradient(circle at 8% 10%, rgb(229 109 88 / 12%), transparent 32%),
     radial-gradient(circle at 90% 12%, rgb(235 8 8 / 7%), transparent 25%),
-    #fffaf0;
+    var(--django-page);
+  transition: color 180ms ease, background-color 180ms ease;
 }
 
 ::selection {

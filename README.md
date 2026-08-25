@@ -126,6 +126,8 @@ This repository is designed to demonstrate those capabilities in one small but c
 - Vite
 - Nuxt UI + Tailwind CSS
 - Vercel AI SDK for Vue (`@ai-sdk/vue`)
+- Browser-detected English/Spanish localization with English fallback
+- System-aware light/dark themes using the Django brand palette
 - Pinia
 - Vue Router
 - Vitest

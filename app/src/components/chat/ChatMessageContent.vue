@@ -3,6 +3,7 @@ import { isToolUIPart } from 'ai'
 
 import CandidatePhotoCard from '@/components/chat/CandidatePhotoCard.vue'
 import ToolApprovalCard from '@/components/chat/ToolApprovalCard.vue'
+import { useLocale } from '@/composables/useLocale'
 import type { ProfileMessage } from '@/types/chat'
 
 defineProps<{ message: ProfileMessage }>()
@@ -11,6 +12,8 @@ const emit = defineEmits<{
   approve: [approvalId: string]
   reject: [approvalId: string]
 }>()
+
+const { text } = useLocale()
 </script>
 
 <template>
@@ -27,9 +30,9 @@ const emit = defineEmits<{
 
       <div
         v-else-if="part.type === 'data-technologies'"
-        class="rounded-2xl border border-stone-200 bg-white/80 p-4"
+        class="rounded-2xl border border-(--django-border) bg-(--django-surface) p-4"
       >
-        <p class="mb-3 text-sm font-medium text-stone-700">{{ part.data.label }}</p>
+        <p class="mb-3 text-sm font-medium text-(--django-copy)">{{ part.data.label }}</p>
         <div class="flex flex-wrap gap-2">
           <UBadge
             v-for="technology in part.data.items"
@@ -42,9 +45,9 @@ const emit = defineEmits<{
         </div>
       </div>
 
-      <UCard v-else-if="part.type === 'data-project'" class="max-w-lg">
-        <p class="font-semibold text-stone-900">{{ part.data.title }}</p>
-        <p class="mt-2 text-sm text-stone-600">{{ part.data.description }}</p>
+      <UCard v-else-if="part.type === 'data-project'" class="max-w-lg bg-(--django-surface)">
+        <p class="font-semibold text-(--django-heading)">{{ part.data.title }}</p>
+        <p class="mt-2 text-sm text-(--django-copy)">{{ part.data.description }}</p>
         <div v-if="part.data.technologies?.length" class="mt-3 flex flex-wrap gap-2">
           <UBadge
             v-for="technology in part.data.technologies"
@@ -62,7 +65,7 @@ const emit = defineEmits<{
           variant="link"
           trailing-icon="i-lucide-arrow-up-right"
           class="mt-2 px-0"
-          label="View project"
+          :label="text.viewProject"
         />
       </UCard>
 
