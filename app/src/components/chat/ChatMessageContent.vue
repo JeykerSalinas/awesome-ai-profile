@@ -30,7 +30,7 @@ const { text } = useLocale()
 
       <div
         v-else-if="part.type === 'data-technologies'"
-        class="rounded-2xl border border-(--django-border) bg-(--django-surface) p-4"
+        class="rounded-[5px] border border-(--django-border) bg-(--django-surface) p-4"
       >
         <p class="mb-3 text-sm font-medium text-(--django-copy)">{{ part.data.label }}</p>
         <div class="flex flex-wrap gap-2">
