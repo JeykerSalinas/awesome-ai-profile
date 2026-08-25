@@ -10,6 +10,16 @@ export type MessageDeltaEvent = {
   data: MessageDeltaData;
 };
 
+export type ImageData = {
+  src: string;
+  alt: string;
+};
+
+export type ImageEvent = {
+  event: "image";
+  data: ImageData;
+};
+
 export type DoneEvent = {
   event: "done";
   data?: {};
@@ -24,7 +34,7 @@ export type ErrorEvent = {
   data: ErrorData;
 };
 
-export type StreamEvent = MessageDeltaEvent | DoneEvent | ErrorEvent;
+export type StreamEvent = MessageDeltaEvent | ImageEvent | DoneEvent | ErrorEvent;
 
 export const isStreamEvent = (value: unknown): value is StreamEvent => {
   if (!value || typeof value !== "object") {
@@ -40,6 +50,14 @@ export const isStreamEvent = (value: unknown): value is StreamEvent => {
 
   if (event === "error") {
     return !!data && typeof (data as { message?: unknown }).message === "string";
+  }
+
+  if (event === "image") {
+    return (
+      !!data &&
+      typeof (data as { src?: unknown }).src === "string" &&
+      typeof (data as { alt?: unknown }).alt === "string"
+    );
   }
 
   return event === "done" && !!data && typeof data === "object";

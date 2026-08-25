@@ -3,8 +3,14 @@ import { ref } from 'vue'
 import type { StreamEvent } from '@/types/events'
 import { isStreamEvent } from '@/types/events'
 
+type AssistantImage = {
+  src: string
+  alt: string
+}
+
 const message = ref('')
 const assistantMessage = ref('')
+const assistantImages = ref<AssistantImage[]>([])
 const errorMessage = ref('')
 const isLoading = ref(false)
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
@@ -13,6 +19,7 @@ const sendMessage = async () => {
   if (!message.value.trim()) return
 
   assistantMessage.value = ''
+  assistantImages.value = []
   errorMessage.value = ''
   isLoading.value = true
   try {
@@ -100,6 +107,10 @@ const handleStreamEvent = (event: StreamEvent) => {
   if (event.event === 'error') {
     throw new Error(event.data.message)
   }
+
+  if (event.event === 'image') {
+    assistantImages.value.push(event.data)
+  }
 }
 </script>
 
@@ -135,10 +146,20 @@ const handleStreamEvent = (event: StreamEvent) => {
     </div>
 
     <div
-      v-if="assistantMessage"
+      v-if="assistantMessage || assistantImages.length"
       class="mt-4 p-3 border rounded"
     >
-      {{ assistantMessage }}
+      <div v-if="assistantMessage">
+        {{ assistantMessage }}
+      </div>
+
+      <img
+        v-for="(image, index) in assistantImages"
+        :key="`${image.src}-${index}`"
+        :src="image.src"
+        :alt="image.alt"
+        class="img-fluid rounded mt-3"
+      />
     </div>
   </main>
 </template>
