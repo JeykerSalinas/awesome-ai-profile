@@ -21,7 +21,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 @router.post("/stream")
 async def stream_chat(request: ChatStreamRequest) -> StreamingResponse:
-    stream = generate_response_stream(request.to_agent_messages(), request.locale)
+    stream = generate_response_stream(request.to_agent_messages(), request.locale, request.documents)
 
     try:
         first_chunk = await anext(stream)

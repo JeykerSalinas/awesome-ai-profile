@@ -11,6 +11,7 @@ async def generate_response(message: str, locale: SupportedLocale = "en") -> str
 async def generate_response_stream(
     messages: list[dict[str, str]],
     locale: SupportedLocale = "en",
+    document_ids: list[str] | None = None,
 ) -> AsyncIterator[AgentStreamEvent]:
-    async for chunk in stream_agent(messages, locale):
+    async for chunk in stream_agent(messages, locale, document_ids):
         yield chunk
