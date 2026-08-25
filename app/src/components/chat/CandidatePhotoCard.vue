@@ -14,7 +14,7 @@ const { text } = useLocale()
     <img
       :src="photo.src"
       :alt="photo.alt"
-      class="aspect-[4/3] w-full object-cover"
+      class=""
       loading="lazy"
     />
     <figcaption class="flex items-center gap-3 px-4 py-3">
