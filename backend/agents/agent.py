@@ -1,11 +1,13 @@
+import json
 from collections.abc import AsyncIterator
 from typing import Literal, TypedDict
 
 from langchain.agents import create_agent
 from langchain_core.messages import ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from agents.tools import get_candidate_photo
+from agents.tools import get_candidate_photo, get_profile_section, search_experience
 
+from services.prompt_service import SupportedLocale, build_professional_system_prompt
 from settings import get_settings
 
 
@@ -20,10 +22,15 @@ class AgentImageEvent(TypedDict):
     alt: str
 
 
-AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent
+class AgentSourceEvent(TypedDict):
+    type: Literal["source"]
+    path: str
 
 
-def get_agent():
+AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent | AgentSourceEvent
+
+
+def get_agent(locale: SupportedLocale = "en"):
     settings = get_settings()
 
     if not settings.google_api_key:
@@ -36,13 +43,13 @@ def get_agent():
 
     return create_agent(
         model=model,
-        tools=[ get_candidate_photo ],
-        system_prompt="You are Jeyker's professional AI representative. You are very funny. Only answer about jeyker when explictly ask you about him",
+        tools=[get_candidate_photo, get_profile_section, search_experience],
+        system_prompt=build_professional_system_prompt(locale),
     )
 
 
-async def ask_agent(message: str) -> str:
-    agent = get_agent()
+async def ask_agent(message: str, locale: SupportedLocale = "en") -> str:
+    agent = get_agent(locale)
 
     result = await agent.ainvoke(
         {
@@ -62,21 +69,43 @@ async def ask_agent(message: str) -> str:
 
 async def stream_agent(
     messages: list[dict[str, str]],
+    locale: SupportedLocale = "en",
 ) -> AsyncIterator[AgentStreamEvent]:
-    agent = get_agent()
+    agent = get_agent(locale)
+    emitted_sources: set[str] = set()
 
     async for token, metadata in agent.astream(
         {"messages": messages},
         stream_mode="messages",
     ):
-        if isinstance(token, ToolMessage) and token.name == "get_candidate_photo":
-            src = str(token.text)
-            if src:
-                yield {
-                    "type": "image",
-                    "src": src,
-                    "alt": "Jeyker Salinas",
-                }
+        if isinstance(token, ToolMessage):
+            if token.name == "get_candidate_photo":
+                src = str(token.text)
+                if src:
+                    yield {
+                        "type": "image",
+                        "src": src,
+                        "alt": "Jeyker Salinas",
+                    }
+                continue
+
+            if token.name in {"get_profile_section", "search_experience"}:
+                try:
+                    payload = json.loads(str(token.text))
+                except (TypeError, ValueError):
+                    continue
+
+                sources = []
+                if isinstance(payload.get("source"), str):
+                    sources.append(payload["source"])
+                for result in payload.get("results", []):
+                    if isinstance(result, dict) and isinstance(result.get("source"), str):
+                        sources.append(result["source"])
+
+                for source in sources:
+                    if source not in emitted_sources:
+                        emitted_sources.add(source)
+                        yield {"type": "source", "path": source}
             continue
 
         text = str(token.text)

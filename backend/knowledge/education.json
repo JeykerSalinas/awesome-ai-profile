@@ -1,0 +1,33 @@
+{
+  "degrees": [
+    {
+      "id": "masters-artificial-intelligence",
+      "degree": "Master's Degree in Artificial Intelligence",
+      "institution": "Universidad de Diseño, Innovación y Tecnología",
+      "location": "Madrid, Spain",
+      "start_year": 2024,
+      "end_year": 2025
+    },
+    {
+      "id": "forest-engineering",
+      "degree": "Forest Engineering - Forest Management",
+      "institution": "Universidad de Los Andes",
+      "location": "Mérida, Venezuela",
+      "start_year": 2012,
+      "end_year": 2017
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Frontend Software Development with Vue.js",
+      "organization": "Desafío LATAM",
+      "location": "Santiago, Chile",
+      "year": 2022
+    },
+    {
+      "name": "Web Design, Frontend Libraries, Algorithms and Data Structures",
+      "organization": "freeCodeCamp",
+      "year": 2020
+    }
+  ]
+}

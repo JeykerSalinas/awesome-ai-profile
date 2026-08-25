@@ -1,0 +1,53 @@
+{
+  "projects": [
+    {
+      "id": "conversational-ai-platform",
+      "title": "Conversational AI Platform",
+      "organization": "Arttac Solutions",
+      "summary": "Frontend development for an AI-powered platform with conversational interfaces, LLM integrations and backend API communication.",
+      "technologies": ["Vue.js", "TypeScript", "LLMs", "REST APIs"],
+      "document": "projects/conversational-ai-platform.md"
+    },
+    {
+      "id": "educational-rag-platform",
+      "title": "Educational Retrieval-Augmented Generation Platform",
+      "organization": "Universidad de Diseño, Innovación y Tecnología",
+      "summary": "Educational application for querying academic content using a Retrieval-Augmented Generation pipeline and large language models.",
+      "technologies": ["RAG", "LLMs", "Python", "Information Retrieval"],
+      "document": "projects/educational-rag-platform.md"
+    },
+    {
+      "id": "realtime-monitoring-platform",
+      "title": "Real-Time Operational Monitoring Platform",
+      "organization": "Energía Latina S.A.",
+      "summary": "Operational monitoring platform with real-time data visualization, dashboards, reporting and billing tools.",
+      "technologies": ["Vue.js", "JavaScript", "Data Visualization", "Dashboards"],
+      "document": "projects/realtime-monitoring-platform.md"
+    },
+    {
+      "id": "medical-evidence-platform",
+      "title": "Evidence-Based Medical Document Platform",
+      "organization": "Fundación Epistemonikos",
+      "summary": "Web platform for classifying evidence-based medical academic documents and maintaining related frontend workflows.",
+      "technologies": ["Vue.js", "JavaScript", "Medical Evidence"],
+      "document": "projects/medical-evidence-platform.md"
+    },
+    {
+      "id": "awesome-ai-profile",
+      "title": "Django AI Interactive Professional Profile",
+      "organization": "Personal engineering portfolio",
+      "summary": "Recruiter-facing conversational portfolio with a Vue/Nuxt UI frontend, a FastAPI backend, Gemini, LangChain and Azure deployment.",
+      "technologies": [
+        "Vue 3",
+        "TypeScript",
+        "Nuxt UI",
+        "FastAPI",
+        "LangChain",
+        "Google Gemini",
+        "AI SDK",
+        "Azure"
+      ],
+      "document": "projects/awesome-ai-profile.md"
+    }
+  ]
+}

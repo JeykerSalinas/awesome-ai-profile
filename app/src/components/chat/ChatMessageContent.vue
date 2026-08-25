@@ -29,6 +29,15 @@ const { text } = useLocale()
       />
 
       <div
+        v-else-if="part.type === 'data-source'"
+        class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+      >
+        <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
+        <span class="font-medium">{{ text.verifiedSource }}:</span>
+        <span class="truncate">{{ part.data.path }}</span>
+      </div>
+
+      <div
         v-else-if="part.type === 'data-technologies'"
         class="rounded-[5px] border border-(--django-border) bg-(--django-surface) p-4"
       >

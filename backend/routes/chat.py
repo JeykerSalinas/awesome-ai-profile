@@ -12,7 +12,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 @router.post("", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     try:
-        message = await generate_response(request.message)
+        message = await generate_response(request.message, request.locale)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -21,7 +21,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 @router.post("/stream")
 async def stream_chat(request: ChatStreamRequest) -> StreamingResponse:
-    stream = generate_response_stream(request.to_agent_messages())
+    stream = generate_response_stream(request.to_agent_messages(), request.locale)
 
     try:
         first_chunk = await anext(stream)
