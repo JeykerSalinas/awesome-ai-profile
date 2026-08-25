@@ -32,6 +32,11 @@ const translations = {
     darkMode: "Switch to dark mode",
     switchLanguage: "Switch language to Spanish",
     verifiedSource: "Verified source",
+    uploadDocument: "Attach a PDF",
+    uploadingDocument: "Indexing document...",
+    uploadedDocument: "Document ready for questions",
+    removeDocument: "Remove document from this chat",
+    documentUploadError: "The document could not be indexed.",
   },
   es: {
     documentTitle: "Asistente IA",
@@ -62,6 +67,11 @@ const translations = {
     darkMode: "Cambiar al modo oscuro",
     switchLanguage: "Cambiar idioma a inglés",
     verifiedSource: "Fuente verificada",
+    uploadDocument: "Adjuntar un PDF",
+    uploadingDocument: "Indexando documento...",
+    uploadedDocument: "Documento listo para preguntas",
+    removeDocument: "Quitar documento de esta conversación",
+    documentUploadError: "No se pudo indexar el documento.",
   },
 } as const;
 

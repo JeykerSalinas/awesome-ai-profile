@@ -10,6 +10,10 @@ import type { ProfileMessage } from "@/types/chat";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const input = ref("");
+const fileInput = ref<HTMLInputElement | null>(null);
+const uploadedDocuments = ref<Array<{ id: string; filename: string }>>([]);
+const isUploading = ref(false);
+const uploadError = ref("");
 const isDark = useDark();
 const { locale, text } = useLocale();
 // const messages = ref([{"parts":[{"type":"text","text":"Why should we hire Jeyker?"}],"id":"U3u32FLC4XP4T2T2","role":"user","metadata":"__vue_devtool_undefined__"},{"id":"assistant-aea52d36459942af8fefb122effb93a0","metadata":"__vue_devtool_undefined__","role":"assistant","parts":[{"type":"step-start"},{"type":"data-source","id":"source-b66cf3d921e74cf8b19eb2d03ab0a2dc","data":{"path":"knowledge/profile.json"}},{"type":"text","text":"Jeyker Salinas is a Software Engineer who specializes in building high-quality, product-oriented applications. You should consider him for your team because he brings a unique combination of expertise that bridges modern web development and practical Artificial Intelligence.\n\nHere are the key reasons why Jeyker is a strong candidate:\n\n*   **Frontend Expertise:** He has a deep focus on frontend engineering, specifically using **Vue.js** and **TypeScript** to create scalable and maintainable architectures.\n*   **AI & RAG Integration:** Jeyker is highly proficient in developing conversational interfaces for Large Language Models (LLMs) and implementing **Retrieval-Augmented Generation (RAG)** applications.\n*   **Full-Stack Capability:** He is experienced in backend integration, particularly with **Python and FastAPI**, allowing him to work effectively across the stack.\n*   **Product Mindset:** He is not just focused on writing code; he is committed to delivering software that is user-focused and aligned with product goals.\n\nIf you are looking for an engineer who can translate complex AI capabilities into intuitive, reliable web interfaces, Jeyker would be a valuable addition to your project.","providerMetadata":"__vue_devtool_undefined__","state":"done"}]}])
@@ -37,7 +41,10 @@ const {
 } = useChat<ProfileMessage>({
   transport: new DefaultChatTransport<ProfileMessage>({
     api: `${apiBaseUrl}/chat/stream`,
-    body: () => ({ locale: locale.value }),
+    body: () => ({
+      locale: locale.value,
+      documents: uploadedDocuments.value.map((document) => document.id),
+    }),
   }),
 });
 
@@ -60,6 +67,40 @@ function sendSuggestion(text: string) {
 
 function respondToApproval(approvalId: string, approved: boolean) {
   void addToolApprovalResponse({ id: approvalId, approved });
+}
+
+async function uploadDocument(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  isUploading.value = true;
+  uploadError.value = "";
+
+  try {
+    const payload = new FormData();
+    payload.append("file", file);
+    payload.append("document_type", "other");
+    const response = await fetch(`${apiBaseUrl}/documents`, {
+      method: "POST",
+      body: payload,
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || text.value.documentUploadError);
+    uploadedDocuments.value.push({ id: result.id, filename: result.filename });
+  } catch (cause) {
+    uploadError.value = cause instanceof Error ? cause.message : text.value.documentUploadError;
+  } finally {
+    isUploading.value = false;
+    target.value = "";
+  }
+}
+
+function removeDocument(documentId: string) {
+  uploadedDocuments.value = uploadedDocuments.value.filter((document) => document.id !== documentId);
+  void fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
+    method: "DELETE",
+  }).catch(() => undefined);
 }
 </script>
 
@@ -216,6 +257,36 @@ function respondToApproval(approvalId: string, approved: boolean) {
             :description="error.message"
             class="mb-3"
           />
+          <UAlert
+            v-if="uploadError"
+            color="error"
+            variant="soft"
+            icon="i-lucide-file-warning"
+            :description="uploadError"
+            class="mb-3"
+          />
+          <div v-if="uploadedDocuments.length" class="mb-3 flex flex-wrap gap-2">
+            <UBadge
+              v-for="document in uploadedDocuments"
+              :key="document.id"
+              color="primary"
+              variant="subtle"
+              class="gap-1.5 rounded-full px-3 py-1.5"
+              :title="text.uploadedDocument"
+            >
+              <UIcon name="i-lucide-file-text" class="size-3.5" />
+              <span class="max-w-44 truncate">{{ document.filename }}</span>
+              <button
+                type="button"
+                :aria-label="text.removeDocument"
+                class="grid size-4 place-items-center rounded-full hover:bg-black/10"
+                @click="removeDocument(document.id)"
+              >
+                <UIcon name="i-lucide-x" class="size-3" />
+              </button>
+            </UBadge>
+          </div>
+          <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="hidden" @change="uploadDocument" />
           <UChatPrompt
             v-model="input"
             :error="error"
@@ -226,19 +297,30 @@ function respondToApproval(approvalId: string, approved: boolean) {
             @submit="submitMessage"
           >
             <template #footer>
-              <span
-                class="flex items-center gap-1.5 text-xs text-(--django-muted)"
-              >
+              <span class="flex items-center gap-1.5 text-xs text-(--django-muted)">
                 <UIcon name="i-lucide-sparkles" class="size-3.5 text-primary" />
-                {{ text.poweredBy }}
+                {{ isUploading ? text.uploadingDocument : text.poweredBy }}
               </span>
-              <UChatPromptSubmit
-                :status="status"
-                color="primary"
-                size="sm"
-                @stop="stop()"
-                @reload="regenerate()"
-              />
+              <div class="flex items-center gap-1">
+                <UButton
+                  icon="i-lucide-paperclip"
+                  type="button"
+                  :aria-label="text.uploadDocument"
+                  :title="text.uploadDocument"
+                  :loading="isUploading"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="fileInput?.click()"
+                />
+                <UChatPromptSubmit
+                  :status="status"
+                  color="primary"
+                  size="sm"
+                  @stop="stop()"
+                  @reload="regenerate()"
+                />
+              </div>
             </template>
           </UChatPrompt>
           <p class="mt-3 text-center text-xs text-(--django-muted)">
