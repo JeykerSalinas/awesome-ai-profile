@@ -60,18 +60,13 @@ async def ask_agent(message: str) -> str:
     return last_message.text
 
 
-async def stream_agent(message: str) -> AsyncIterator[AgentStreamEvent]:
+async def stream_agent(
+    messages: list[dict[str, str]],
+) -> AsyncIterator[AgentStreamEvent]:
     agent = get_agent()
 
     async for token, metadata in agent.astream(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": message,
-                }
-            ]
-        },
+        {"messages": messages},
         stream_mode="messages",
     ):
         if isinstance(token, ToolMessage) and token.name == "get_candidate_photo":

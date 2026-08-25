@@ -1,821 +1,314 @@
 # awesome-ai-profile
-> An AI-powered interactive professional profile and engineering portfolio.
 
-[Link to the platform](https://proud-mud-0ed95371e.7.azurestaticapps.net/)
+> An interactive AI-powered professional profile built with Vue 3, Nuxt UI, FastAPI, LangChain and Gemini.
 
-Instead of reading a static résumé, recruiters can talk to an AI assistant that understands Jeyker Salinas' professional background, projects, technical skills, education and engineering decisions.
+**Live application:** https://proud-mud-0ed95371e.7.azurestaticapps.net/
 
-The goal of this repository is twofold:
+Instead of reading a static résumé, recruiters can talk to Django: an AI assistant representing Jeyker Salinas' professional profile. The project also serves as a practical portfolio for applied AI engineering, frontend development, backend integration and cloud deployment.
 
-1. Build a useful interactive portfolio for recruiters.
-2. Demonstrate, with working software, the skills companies currently expect from AI Engineers: software engineering, LLMs, RAG, agents, tool calling, evaluation, observability, cloud deployment and CI/CD.
+## What works today
 
----
+- Responsive recruiter-facing chat built with **Nuxt UI**, **Vue 3**, **TypeScript** and **Tailwind CSS**.
+- AI SDK for Vue (`@ai-sdk/vue`) with streamed responses, retry, cancellation and in-session conversation history.
+- FastAPI backend that implements the AI SDK UI Message Stream Protocol over **HTTP/SSE**; WebSockets and a Nuxt server are not required.
+- Gemini integration through LangChain, including real agent tool calling.
+- A `get_candidate_photo` tool whose result appears inline as a custom photo card.
+- Extensible typed message parts for photos, technology badges and project cards.
+- An approval component prepared for human-in-the-loop tools; an actual approval-required backend tool is still pending.
+- English and Spanish localization with browser-language detection, an English fallback and a persistent language switcher.
+- System-aware light/dark mode with a persistent toggle and Django's brand palette.
+- Backend unit tests for request validation, conversation history, stream ordering and provider errors.
+- Azure Static Web Apps deployment through GitHub Actions, plus Docker/Azure Container Apps deployment commands for the backend.
 
-## Product idea
+## Product goal
 
-A recruiter opens the application and sees a simple conversational interface.
-
-Suggested prompts might include:
+A recruiter should eventually be able to ask:
 
 - Why should we hire Jeyker?
-- What AI projects has Jeyker built?
-- Does Jeyker have production experience with Vue and TypeScript?
-- What is his experience with RAG and LLM applications?
-- Is he comfortable working full stack?
-- What technologies were used to build this CV?
-- Show me evidence that he can deploy software.
-- Send Jeyker a message.
-- Summarize Jeyker's experience for an AI Engineer role.
-- Why should we hire Jeyker?
-- What has he actually built with AI?
-- Explain this project's architecture.
-- Is this just an LLM wrapper?
-- What are Jeyker's weaknesses?
-- Why is this CV talking to me?
-- Why is this profile unnecessarily overengineered?
-- Convince me to hire Jeyker in 30 seconds
+- What has he built with Vue, TypeScript and AI?
+- What experience does he have with RAG, LLM applications and full-stack development?
+- How was this project built and deployed?
+- Can you show his profile photo, relevant projects or supporting sources?
+- Can you send Jeyker a message after obtaining explicit approval?
 
-The assistant does not answer from a hard-coded FAQ.
+The current assistant can stream answers and execute the photo tool. A curated knowledge base, grounded retrieval, source citations and recruiter contact workflows are planned; they are not yet implemented.
 
-It retrieves relevant information from a curated knowledge base containing the CV, project descriptions, technical notes and selected professional history, then builds a grounded response.
+## Current architecture
 
-For some requests, the assistant can use tools. For example, a recruiter may ask the assistant to send Jeyker a contact message. Tool execution must be explicit, auditable and protected against abuse.
+```mermaid
+flowchart TD
+    Recruiter[Recruiter] --> Frontend[Vue 3 + Nuxt UI]
+    Frontend -->|AI SDK over HTTP/SSE| API[FastAPI chat API]
+    API --> Agent[LangChain agent]
+    Agent --> Gemini[Google Gemini]
+    Agent --> Photo[get_candidate_photo]
+    Photo -->|Custom message part| Frontend
+    GitHub[GitHub Actions] --> AzureWeb[Azure Static Web Apps]
+    Docker[Backend Docker image] --> AzureAPI[Azure Container Apps]
+```
 
----
+### Frontend
 
-# Why this project exists
+- Vue 3 and TypeScript.
+- Vite and Vue Router.
+- **Nuxt UI** and Tailwind CSS for the complete chat experience and design system.
+- Vercel AI SDK for Vue: `useChat`, `DefaultChatTransport`, message parts and tool-approval responses.
+- VueUse for persisted language preferences and automatic light/dark theme detection.
+- Typed custom renderers for text, profile photos, technology lists, project cards and approval requests.
+- English/Spanish localization with automatic detection and manual selection.
 
-AI Engineer roles increasingly sit between Software Engineering, Machine Learning and Product Engineering.
+The project uses Nuxt UI as a Vue component library. It does **not** require Nuxt.js, Nitro, a hosted chat backend or WebSockets.
 
-Companies are looking for engineers who can:
+### Backend and AI
 
-- build applications with LLMs;
-- implement RAG;
-- build tool-using AI agents;
-- expose AI functionality through APIs;
-- work with structured and unstructured data;
-- evaluate model outputs;
-- monitor AI systems;
-- deploy services to cloud infrastructure;
-- use Docker and CI/CD;
-- reason about latency, reliability, cost and security;
-- communicate technical decisions clearly.
+- Python 3.12+, FastAPI and Pydantic.
+- `POST /chat` for a regular JSON response.
+- `POST /chat/stream` for the AI SDK UI Message Stream Protocol.
+- `GET /health` for a basic health check.
+- LangChain agent backed by Google Gemini.
+- Typed streaming events and custom candidate-photo message parts.
+- Environment-based configuration for the model API key, CORS and deployment settings.
 
-This repository is designed to demonstrate those capabilities in one small but complete system.
+The current agent uses LangChain's `create_agent`. An explicitly modeled LangGraph workflow, provider switching, durable agent state and approval-gated side effects are future improvements rather than current capabilities.
 
----
+### Infrastructure and deployment
 
-# Architecture
+- **Frontend:** Azure Static Web Apps, deployed from `main` by GitHub Actions.
+- **Backend:** Dockerfile and Makefile targets for Azure Container Registry and Azure Container Apps.
+- **Local database groundwork:** Docker Compose can start PostgreSQL, but the application does not yet persist conversations or implement pgvector-based retrieval.
+
+AWS remains an alternative for future experimentation, but Azure is the deployment platform represented by the current repository.
+
+## Local development
+
+Create the local environment files from the provided examples, configure `GOOGLE_API_KEY`, then use the Makefile targets:
+
+```bash
+make install
+make dev
+```
+
+Useful commands:
+
+```bash
+make front              # Start the Vue/Vite frontend
+make back               # Start the FastAPI backend
+make type-check         # Check frontend TypeScript types
+make build              # Build the frontend for production
+make docker-back-build  # Build the backend Docker image
+make docker-back-run    # Run the backend container locally
+make acr-login          # Authenticate with Azure Container Registry
+make deploy-back        # Build, push and deploy the backend to Azure
+```
+
+Run the existing backend tests with:
+
+```bash
+cd backend
+python -m unittest discover -s tests -v
+```
+
+## Repository structure
 
 ```text
-                         ┌────────────────────────────┐
-                         │        Recruiter           │
-                         └──────────────┬─────────────┘
-                                        │
-                                        ▼
-                         ┌────────────────────────────┐
-                         │ Vue 3 + TypeScript         │
-                         │ Interactive Chat UI        │
-                         └──────────────┬─────────────┘
-                                        │ HTTPS / SSE
-                                        ▼
-                         ┌────────────────────────────┐
-                         │ FastAPI Backend            │
-                         │ Auth · Rate Limit · API    │
-                         └──────────────┬─────────────┘
-                                        │
-                                        ▼
-                         ┌────────────────────────────┐
-                         │ AI Agent / Orchestrator    │
-                         │ LangGraph                  │
-                         └───────┬─────────┬──────────┘
-                                 │         │
-                      retrieve   │         │ tools
-                                 ▼         ▼
-                    ┌────────────────┐   ┌──────────────────┐
-                    │ RAG Pipeline   │   │ Tool Layer       │
-                    │ embeddings     │   │ contact/email    │
-                    │ reranking      │   │ profile actions  │
-                    └───────┬────────┘   └──────────────────┘
-                            │
-                            ▼
-                    ┌────────────────┐
-                    │ PostgreSQL     │
-                    │ + pgvector     │
-                    └────────────────┘
-
-                            │
-                            ▼
-                    ┌────────────────┐
-                    │ LLM Provider   │
-                    │ swappable      │
-                    └────────────────┘
-
-             Observability · Evals · CI/CD · Cloud
+awesome-ai-profile/
+├── app/                         # Vue 3 + Nuxt UI + AI SDK frontend
+│   ├── public/django_design/    # Django logo, icons and brand assets
+│   └── src/
+│       ├── components/chat/     # Message, photo and approval components
+│       ├── composables/         # Browser localization and preferences
+│       ├── types/               # Typed message parts and stream contracts
+│       └── views/               # Recruiter-facing chat
+├── backend/                     # FastAPI + LangChain + Gemini
+│   ├── agents/                  # Agent and callable tools
+│   ├── routes/                  # Chat API endpoints
+│   ├── schemas/                 # Pydantic request/event models
+│   ├── services/                # Agent and AI SDK SSE adapters
+│   ├── tests/                   # Stream and request unit tests
+│   └── Dockerfile
+├── .github/workflows/           # Azure Static Web Apps deployment
+├── docker-compose.yml           # Local PostgreSQL service
+├── Makefile                     # Development and Azure deployment tasks
+└── README.md
 ```
 
----
-
-# Proposed technology stack
-
-## Frontend
-
-- Vue 3
-- TypeScript
-- Vite
-- Pinia
-- Vue Router
-- Vitest
-- Playwright
-- SSE or WebSockets for streamed responses
-
-Why Vue?
-
-Because the project should demonstrate deep engineering ability rather than hide existing experience. The frontend will be kept intentionally polished and strongly typed while most new learning happens in the AI, backend and infrastructure layers.
-
----
-
-## Backend
-
-- Python 3.12+
-- FastAPI
-- Pydantic
-- SQLAlchemy
-- Alembic
-- pytest
-
-Responsibilities:
-
-- chat API;
-- streaming responses;
-- orchestration entry point;
-- authentication/security controls;
-- tool execution;
-- retrieval APIs;
-- health checks;
-- telemetry;
-- persistence.
-
----
-
-## LLM and agent layer
-
-Initial stack:
-
-- LangGraph for orchestration
-- provider-independent LLM interface
-- structured outputs with Pydantic
-- tool/function calling
-- explicit agent state
-- retry/fallback policies
-
-Possible providers:
-
-- Gemini free/low-cost tier during development;
-- local models through Ollama for local experimentation;
-- another hosted provider can be added through the same abstraction.
-
-The architecture should avoid coupling the application to a single model vendor.
-
----
-
-# RAG
-
-The assistant will receive factual context about Jeyker from a small curated knowledge base.
-
-Example sources:
-
-```text
-knowledge/
-├── cv.md
-├── profile.md
-├── education.md
-├── projects/
-│   ├── rag-education-platform.md
-│   ├── conversational-ai-platform.md
-│   ├── realtime-monitoring.md
-│   └── vue-migration.md
-└── skills/
-    ├── frontend.md
-    ├── backend.md
-    ├── ai.md
-    └── cloud.md
-```
-
-Pipeline:
-
-```text
-documents
-   ↓
-clean / chunk
-   ↓
-embeddings
-   ↓
-pgvector
-   ↓
-semantic retrieval
-   ↓
-optional reranking
-   ↓
-context
-   ↓
-LLM
-   ↓
-grounded answer + sources
-```
-
-The UI should expose the sources used for important factual answers.
-
-This is important: the goal is not merely to demonstrate that an LLM can talk. It is to demonstrate that an AI system can produce traceable answers based on controlled information.
-
----
-
-# Agent tools
-
-The assistant will gradually gain a small number of safe tools.
-
-### `get_profile_section`
-
-Returns structured CV information.
-
-### `search_experience`
-
-Searches projects and professional experience.
-
-### `create_contact_request`
-
-Stores a recruiter contact request.
-
-### `send_contact_email`
-
-Optional advanced feature.
-
-Sends a message to Jeyker after server-side validation and abuse protection.
-
-The AI model never receives raw email credentials.
-
-All tools will have:
-
-- typed schemas;
-- validation;
-- authorization rules;
-- rate limits;
-- audit logs;
-- explicit success/error responses.
-
----
-
-# Security and responsible AI
-
-Because this is a public-facing AI application, security is part of the project rather than an afterthought.
-
-Planned controls:
-
-- prompt-injection-aware retrieval;
-- system prompt isolation;
-- strict tool schemas;
-- server-side tool authorization;
-- input size limits;
-- rate limiting;
-- secrets stored outside source control;
-- PII minimization;
-- audit logs for side effects;
-- allow-listed tool behavior;
-- output validation;
-- dependency scanning.
-
-The assistant must never invent professional experience that does not exist in the knowledge base.
-
-When evidence is insufficient, it should say so.
-
----
-
-# Evaluation
-
-AI systems need tests beyond unit tests.
-
-A small evaluation dataset will contain questions such as:
-
-```json
-{
-  "question": "Does Jeyker have experience with RAG?",
-  "expected_facts": [
-    "FastAPI",
-    "LlamaIndex",
-    "LangChain",
-    "vector databases"
-  ]
-}
-```
-
-Evaluation dimensions:
-
-- answer correctness;
-- groundedness;
-- retrieval relevance;
-- hallucination rate;
-- tool-call correctness;
-- latency;
-- token usage;
-- estimated cost.
-
-The repository will include repeatable offline evaluations so changes to prompts, models or retrieval can be compared instead of judged by intuition.
-
----
-
-# Observability / LLMOps
-
-Planned telemetry:
-
-- request latency;
-- model latency;
-- retrieval latency;
-- prompt/model version;
-- token consumption;
-- tool calls;
-- failures;
-- traces;
-- user feedback.
-
-Potential tooling:
-
-- OpenTelemetry
-- Langfuse or Phoenix
-- structured application logs
-
-The exact vendor is secondary.
-
-The objective is to understand what the AI system is doing in production.
-
----
-
-# Database
-
-PostgreSQL will store:
-
-- recruiter sessions;
-- conversations;
-- messages;
-- contact requests;
-- knowledge metadata;
-- evaluation results;
-- audit events.
-
-`pgvector` will store embeddings.
-
-Using PostgreSQL + pgvector keeps the first production architecture intentionally simple while still demonstrating vector search.
-
-A dedicated vector database can later be evaluated if scale or functionality justifies it.
-
----
-
-# Containerization
-
-Services will run locally with Docker Compose.
-
-```text
-docker-compose.yml
-
-frontend
-backend
-postgres + pgvector
-optional local LLM
-observability service
-```
-
-Production images will use multi-stage Docker builds.
-
----
-
-# CI/CD
-
-GitHub Actions will eventually run:
-
-```text
-push / pull request
-        ↓
-frontend lint + typecheck
-        ↓
-frontend tests
-        ↓
-backend lint
-        ↓
-backend tests
-        ↓
-AI evaluation smoke tests
-        ↓
-build Docker images
-        ↓
-security/dependency checks
-        ↓
-deploy
-```
-
-The repository should always show whether the current commit passes CI.
-
----
-
-# Cloud
-
-The first cloud deployment should intentionally use a small number of managed services.
-
-A possible AWS architecture:
-
-```text
-CloudFront / static hosting
-          │
-          ▼
-     Vue frontend
-
-          │
-          ▼
-
- Application Load Balancer
-          │
-          ▼
- ECS Fargate / container
-     FastAPI backend
-          │
-     ┌────┴─────┐
-     ▼          ▼
- RDS Postgres   External/managed LLM
- + pgvector
-```
-
-Supporting AWS services may include:
-
-- S3
-- CloudFront
-- ECS/Fargate
-- ECR
-- RDS PostgreSQL
-- Secrets Manager
-- CloudWatch
-- IAM
-
-The deployment target may change during implementation if another platform produces a substantially cheaper architecture, but the project must demonstrate the same concepts:
-
-**container → cloud service → managed database → secrets → monitoring → CI/CD.**
-
----
-
-# Engineering principles
-
-This project intentionally prioritizes:
-
-1. working software over architectural theatre;
-2. simple architecture before distributed architecture;
-3. measurable AI behavior over impressive demos;
-4. typed interfaces between components;
-5. production concerns from the beginning;
-6. incremental delivery;
-7. documentation of engineering trade-offs.
-
-Technologies will only be added when they solve a real problem.
-
-For example, Kubernetes will not be introduced merely to list Kubernetes on a CV. A deployment experiment may be added later to demonstrate orchestration concepts, but the main application should remain economically reasonable to operate.
-
----
-
-# Development roadmap
-
-## Phase 0 — Back to coding
-
-Goal: restore development rhythm.
-
-- [X] Create monorepo structure.
-- [ ] Create Vue 3 + TypeScript application.
-- [ ] Create FastAPI application.
-- [ ] Add `/health` endpoint.
-- [ ] Connect frontend to backend.
-- [ ] Add formatting, linting and basic tests.
-- [ ] Add Dockerfiles.
-- [ ] Run entire project locally with one command.
-
-**Proof unlocked:** Vue, TypeScript, Python, FastAPI, Git, APIs, Docker.
-
----
-
-## Phase 1 — Build the chat
-
-Goal: create the smallest useful product.
-
-- [ ] Build responsive recruiter chat UI.
-- [ ] Add predefined prompt suggestions.
-- [ ] Add streaming responses.
-- [ ] Connect backend to an LLM.
-- [ ] Create provider abstraction.
-- [ ] Add structured API errors.
-- [ ] Persist conversations.
-
-Example prompt suggestions:
-
-- Why should we hire Jeyker?
-- What makes this CV different?
-- Tell me about Jeyker's AI experience.
-- What has Jeyker built with Vue?
-- Explain the architecture of this application.
-
-**Proof unlocked:** LLM integration, product engineering, streaming APIs, UX.
-
----
-
-## Phase 2 — RAG CV
-
-Goal: make answers factual and traceable.
-
-- [ ] Convert CV/profile information into curated documents.
-- [ ] Implement document ingestion.
-- [ ] Implement chunking.
+## Development roadmap
+
+Checked items correspond to functionality present in the repository; unchecked items are still planned.
+
+### Phase 0 — Project foundations
+
+**Goal:** establish a working local development environment.
+
+- [x] Create the frontend/backend monorepo structure.
+- [x] Create the Vue 3 + TypeScript application.
+- [x] Create the FastAPI application.
+- [x] Add a `/health` endpoint.
+- [x] Connect the frontend to the backend.
+- [x] Run the frontend and backend together with `make dev`.
+- [x] Add a production-ready backend Dockerfile.
+- [x] Provide Docker Compose configuration for local PostgreSQL.
+- [ ] Add consistent formatting and linting commands.
+- [ ] Add a single command that also starts every required infrastructure service.
+
+### Phase 1 — Recruiter chat and Nuxt UI
+
+**Goal:** deliver a polished, useful conversational portfolio.
+
+- [x] Build a responsive recruiter chat with Nuxt UI and Tailwind CSS.
+- [x] Add predefined recruiter prompt suggestions.
+- [x] Stream responses with the AI SDK protocol over HTTP/SSE.
+- [x] Integrate Vue `useChat` with the existing FastAPI backend.
+- [x] Connect the LangChain agent to Google Gemini.
+- [x] Keep conversation history during the active chat session.
+- [x] Support cancellation, retry and structured streaming errors.
+- [x] Render typed custom message parts and profile-photo cards.
+- [x] Add English/Spanish localization with browser detection and manual switching.
+- [x] Add system-aware light/dark mode with the Django brand palette.
+- [ ] Add Markdown rendering and richer assistant-message formatting.
+- [ ] Add a clean provider abstraction for swapping LLMs.
+- [ ] Persist conversations across browser sessions.
+
+### Phase 2 — Grounded professional knowledge and RAG
+
+**Goal:** make answers factual, grounded and traceable.
+
+- [ ] Convert Jeyker's CV, projects, education and skills into curated documents.
+- [ ] Implement document ingestion and chunking.
 - [ ] Generate embeddings.
-- [ ] Add PostgreSQL + pgvector.
+- [ ] Configure PostgreSQL with pgvector.
 - [ ] Implement semantic retrieval.
-- [ ] Build grounded prompts.
-- [ ] Show sources in the UI.
-- [ ] Add retrieval tests.
+- [ ] Build grounded prompts from retrieved context.
+- [ ] Cite supporting sources in the chat interface.
+- [ ] Add retrieval and grounded-answer tests.
 
-**Proof unlocked:** RAG, embeddings, vector search, data pipelines, PostgreSQL.
+### Phase 3 — Controlled agent tools
 
----
+**Goal:** move from a conversational assistant to a safe, useful agent.
 
-## Phase 3 — Agentic AI
+- [x] Create a LangChain agent with tool-calling support.
+- [x] Implement the `get_candidate_photo` tool.
+- [x] Render tool results inline as custom message components.
+- [x] Prepare an approval UI for human-in-the-loop interactions.
+- [ ] Introduce an explicit LangGraph workflow when orchestration complexity requires it.
+- [ ] Model durable agent state explicitly.
+- [ ] Implement `search_experience`.
+- [ ] Implement `get_profile_section`.
+- [ ] Implement `create_contact_request`.
+- [ ] Require and enforce approval before side-effecting tools run.
+- [ ] Add tool authorization, rate limits and audit logs.
+- [ ] Test invalid, malicious and denied tool requests.
 
-Goal: move from chatbot to controlled agent.
+### Phase 4 — AI evaluation
 
-- [ ] Add LangGraph.
-- [ ] Model agent state explicitly.
-- [ ] Implement tool calling.
-- [ ] Add `search_experience`.
-- [ ] Add `get_profile_section`.
-- [ ] Add `create_contact_request`.
-- [ ] Add confirmation boundaries for side effects.
-- [ ] Add tool audit logs.
-- [ ] Test invalid and malicious tool requests.
+**Goal:** measure answer quality instead of relying on impressions.
 
-**Proof unlocked:** agents, LangGraph, function calling, orchestration, responsible tool execution.
+- [ ] Create a recruiter-question evaluation dataset.
+- [ ] Measure retrieval relevance and expected-fact coverage.
+- [ ] Evaluate groundedness and hallucinations.
+- [ ] Measure request/model latency.
+- [ ] Track token usage and estimated cost.
+- [ ] Run regression evaluations in CI.
+- [ ] Compare at least two model configurations.
 
----
+### Phase 5 — Production engineering
 
-## Phase 4 — AI evaluation
+**Goal:** improve reliability, safety and observability.
 
-Goal: prove that the assistant works reliably.
-
-- [ ] Create recruiter-question evaluation dataset.
-- [ ] Create retrieval metrics.
-- [ ] Test expected facts.
-- [ ] Measure hallucinations.
-- [ ] Measure latency.
-- [ ] Track model/token usage.
-- [ ] Add regression evaluation to CI.
-- [ ] Compare at least two models.
-
-**Proof unlocked:** evals, benchmarking, LLMOps, model selection.
-
----
-
-## Phase 5 — Production engineering
-
-Goal: treat the project as real software.
-
-- [ ] Add unit tests.
+- [x] Add backend unit tests for chat requests and SSE message streams.
+- [x] Add a basic backend health endpoint.
+- [x] Configure CORS and environment-based secrets.
 - [ ] Add API integration tests.
-- [ ] Add Playwright E2E tests.
-- [ ] Add rate limiting.
-- [ ] Add structured logging.
-- [ ] Add tracing.
-- [ ] Add health/readiness checks.
-- [ ] Add retry and timeout policies.
+- [ ] Add frontend component tests.
+- [ ] Add Playwright end-to-end tests.
+- [ ] Add readiness checks and dependency health checks.
+- [ ] Add rate limiting and request-size limits.
+- [ ] Add structured logs, traces and metrics.
+- [ ] Add retry, timeout and fallback policies.
 - [ ] Add prompt/model versioning.
-- [ ] Add security headers.
-- [ ] Add dependency vulnerability checks.
+- [ ] Add security headers and dependency vulnerability checks.
 
-**Proof unlocked:** testing, security, observability, reliability.
+### Phase 6 — Azure deployment
 
----
+**Goal:** demonstrate ownership from source code to production.
 
-## Phase 6 — Cloud deployment
+- [x] Deploy the frontend to Azure Static Web Apps.
+- [x] Build the backend with a production Dockerfile.
+- [x] Provide Azure Container Registry login and image-push commands.
+- [x] Provide Azure Container Apps backend deployment commands.
+- [x] Configure HTTPS platform URLs and environment-based secrets.
+- [ ] Provision and connect managed PostgreSQL.
+- [ ] Configure centralized production logs and monitoring.
+- [ ] Configure an optional custom domain.
+- [ ] Document the actual Azure architecture and operating cost.
 
-Goal: demonstrate ownership from code to production.
+### Phase 7 — CI/CD
 
-- [ ] Build production Docker images.
-- [ ] Push images to a container registry.
-- [ ] Provision managed PostgreSQL.
-- [ ] Deploy backend container.
-- [ ] Deploy frontend.
-- [ ] Configure secrets.
-- [ ] Configure HTTPS.
-- [ ] Configure logs and monitoring.
-- [ ] Configure domain.
-- [ ] Document architecture and cost.
+**Goal:** make quality checks and deployments reproducible.
 
-**Proof unlocked:** AWS/cloud, deployment, managed infrastructure, networking, production operations.
+- [x] Add a GitHub Actions workflow.
+- [x] Build and deploy the frontend from `main` to Azure Static Web Apps.
+- [x] Configure preview handling for pull requests targeting `main`.
+- [ ] Run frontend linting and tests explicitly in CI.
+- [ ] Run backend tests automatically.
+- [ ] Run AI smoke evaluations.
+- [ ] Build and publish the backend Docker image automatically.
+- [ ] Deploy the backend automatically.
+- [ ] Add rollback and release-recovery procedures.
 
----
+### Phase 8 — Advanced AI engineering
 
-## Phase 7 — CI/CD
-
-Goal: make deployments reproducible.
-
-- [ ] Add GitHub Actions.
-- [ ] Run lint/type checks automatically.
-- [ ] Run backend tests.
-- [ ] Run frontend tests.
-- [ ] Run AI smoke evals.
-- [ ] Build Docker images.
-- [ ] Deploy from the main branch.
-- [ ] Add rollback strategy.
-
-**Proof unlocked:** GitHub Actions, CI/CD, release engineering.
-
----
-
-## Phase 8 — Advanced AI engineering
-
-Only after the core application is working:
+Only after the grounded recruiter experience and controlled tools work end to end:
 
 - [ ] Add model routing.
 - [ ] Add semantic caching.
 - [ ] Add reranking.
-- [ ] Add conversation memory strategy.
+- [ ] Define a durable conversation-memory strategy.
 - [ ] Add prompt caching where supported.
 - [ ] Experiment with local/open-source models.
 - [ ] Compare RAG configurations.
-- [ ] Experiment with MCP integration.
-- [ ] Add human-in-the-loop workflows.
-- [ ] Add automated red-team cases.
-- [ ] Evaluate multimodal CV/project inputs.
+- [ ] Evaluate MCP integrations where they solve a concrete problem.
+- [ ] Complete human-in-the-loop workflows for recruiter contact actions.
+- [ ] Add automated prompt-injection and red-team cases.
+- [ ] Evaluate multimodal CV and project inputs.
 
-**Proof unlocked:** advanced GenAI engineering without blocking the MVP.
+## Skills coverage
 
----
+| Capability | Current evidence | Next evidence |
+| --- | --- | --- |
+| Vue / TypeScript | Nuxt UI recruiter chat, typed message parts and responsive UI | Component and end-to-end tests |
+| AI application engineering | AI SDK streaming, Gemini integration and LangChain agent | Grounded retrieval and model evaluations |
+| Tool calling | `get_candidate_photo` and inline custom photo rendering | Recruiter contact and approval-gated tools |
+| APIs | FastAPI JSON/SSE endpoints, Pydantic validation and health checks | API integration tests and rate limiting |
+| Testing | Backend unit tests and frontend production type checks | CI test automation, E2E and AI evals |
+| Docker / Azure | Backend Dockerfile, ACR/Container Apps commands and Static Web Apps | Automated backend delivery and monitoring |
+| CI/CD | GitHub Actions frontend deployment from `main` | Full frontend/backend quality gates |
+| RAG / vector search | Local PostgreSQL groundwork only | Curated knowledge, pgvector, embeddings and citations |
+| Responsible AI | Server-side tool execution and an approval-ready interface | Enforced approvals, authorization and audit logs |
 
-# Skills coverage matrix
+## Engineering principles
 
-| Market requirement | Evidence in this project |
-|---|---|
-| Python | FastAPI backend and AI services |
-| JavaScript / TypeScript | Vue application |
-| LLM APIs | Provider integration |
-| Prompt engineering | Versioned grounded prompts |
-| Context engineering | RAG + conversation state |
-| RAG | CV knowledge retrieval |
-| Embeddings | Document ingestion pipeline |
-| Vector search | pgvector |
-| AI Agents | LangGraph workflow |
-| Tool calling | Contact/profile/search tools |
-| APIs | REST + streamed chat endpoints |
-| SQL | PostgreSQL persistence |
-| Data engineering | ingestion + transformation pipeline |
-| Docker | local and production containers |
-| Cloud | production deployment |
-| AWS/Azure/GCP concepts | deployment architecture |
-| CI/CD | GitHub Actions |
-| MLOps / LLMOps | model/prompt/eval lifecycle |
-| Evaluation | regression dataset + metrics |
-| Observability | traces, logs and metrics |
-| Security | validation, secrets, rate limits |
-| Testing | unit, integration and E2E |
-| Git | feature-based development history |
-| Product thinking | recruiter-focused UX |
-| Communication | architecture docs and ADRs |
+1. Working software over architectural theatre.
+2. Current implementation and future plans must be clearly distinguished.
+3. Simple architecture before distributed architecture.
+4. Typed interfaces between frontend, backend and AI services.
+5. Measurable AI behavior over impressive but unverifiable demos.
+6. Incremental delivery, honest documentation and sensible operating costs.
 
----
+The repository should never claim RAG, durable persistence, production monitoring or approval-gated actions until the corresponding capabilities actually exist.
 
-# What this project deliberately does NOT claim
+## Definition of done
 
-This project does not attempt to pretend that integrating an LLM API is equivalent to training foundation models.
+The project is complete when a recruiter can:
 
-It distinguishes between:
+1. Open a public URL and use the Nuxt UI chat.
+2. Ask a question about Jeyker in English or Spanish.
+3. Receive a factual answer grounded in curated professional documents.
+4. Inspect the sources supporting that answer.
+5. Explore projects, technologies and other structured message components.
+6. Send a contact request only after an explicit approval step.
+7. Inspect automated tests, AI evaluations and a green CI pipeline.
+8. Understand the Azure deployment architecture and operating costs.
+9. Verify the implementation and engineering decisions in this repository.
 
-- software engineering;
-- applied AI engineering;
-- machine learning engineering;
-- model research.
-
-The main focus is **Applied / Generative AI Engineering**: building reliable products and systems around modern AI models.
-
-Traditional ML experiments may be added separately where they provide useful evidence.
-
----
-
-# Repository structure
-
-```text
-jeyker-ai-cv/
-├── apps/
-│   ├── web/                 # Vue 3 + TypeScript
-│   └── api/                 # FastAPI
-│
-├── packages/
-│   └── shared/              # shared contracts/schema if useful
-│
-├── ai/
-│   ├── agents/
-│   ├── prompts/
-│   ├── retrieval/
-│   ├── tools/
-│   └── evals/
-│
-├── knowledge/
-│   ├── cv.md
-│   ├── profile.md
-│   ├── education.md
-│   ├── projects/
-│   └── skills/
-│
-├── infrastructure/
-│   ├── docker/
-│   └── cloud/
-│
-├── docs/
-│   ├── architecture.md
-│   ├── decisions/
-│   └── threat-model.md
-│
-├── .github/
-│   └── workflows/
-│
-├── docker-compose.yml
-└── README.md
-```
-
----
-
-# Architecture Decision Records
-
-Important engineering decisions will be documented under `docs/decisions`.
-
-Examples:
-
-```text
-ADR-001 — Why Vue instead of React?
-ADR-002 — Why FastAPI?
-ADR-003 — Why PostgreSQL + pgvector?
-ADR-004 — Why LangGraph?
-ADR-005 — Choosing the initial LLM provider
-ADR-006 — Why not Kubernetes yet?
-ADR-007 — RAG chunking strategy
-ADR-008 — Tool-call security model
-```
-
-This is part of the portfolio.
-
-A recruiter should be able to inspect not only what was built, but **why engineering decisions were made**.
-
----
-
-# Definition of done
-
-The project is successful when a recruiter can:
-
-1. open a public URL;
-2. ask a question about Jeyker;
-3. receive a grounded, useful answer;
-4. inspect the information sources;
-5. ask how the application itself works;
-6. see its architecture;
-7. inspect automated tests and evaluations;
-8. see a green CI pipeline;
-9. inspect the cloud deployment architecture;
-10. verify the implementation in this repository.
-
-At that point the repository itself becomes part of the CV.
-
----
-
-# The CV line this project should eventually earn
-
-> **Jeyker AI CV — Production-oriented GenAI application built with Vue 3, TypeScript and FastAPI, featuring RAG over professional knowledge, pgvector semantic search, LangGraph agent orchestration and tool calling, automated LLM evaluations, observability, Docker-based deployment and CI/CD to cloud infrastructure.**
-
-That sentence should only be added to the CV once the corresponding features actually exist.
-
----
-
-# First milestone
-
-Do not begin with LangGraph.
-
-Do not begin with cloud.
-
-Do not begin with embeddings.
-
-The first milestone is intentionally boring:
-
-```text
-Vue page
-   ↓
-POST /chat
-   ↓
-FastAPI
-   ↓
-"Hello, recruiter."
-```
-
-Then commit it.
-
-Every later capability should be introduced through a small working increment.
-
-The objective is not to prove everything in one weekend.
-
-The objective is to build a repository whose commit history becomes evidence of how an AI Engineer works.
+At that point, the application and its commit history become part of the CV.
