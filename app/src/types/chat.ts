@@ -17,10 +17,15 @@ export interface ProjectData {
   url?: string
 }
 
+export interface SourceData {
+  path: string
+}
+
 export type ProfileDataParts = {
   'candidate-photo': CandidatePhotoData
   technologies: TechnologyData
   project: ProjectData
+  source: SourceData
 }
 
 export type ProfileMessage = UIMessage<never, ProfileDataParts>

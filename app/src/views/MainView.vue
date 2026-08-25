@@ -37,6 +37,7 @@ const {
 } = useChat<ProfileMessage>({
   transport: new DefaultChatTransport<ProfileMessage>({
     api: `${apiBaseUrl}/chat/stream`,
+    body: () => ({ locale: locale.value }),
   }),
 })
 

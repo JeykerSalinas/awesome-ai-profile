@@ -13,6 +13,10 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - FastAPI backend that implements the AI SDK UI Message Stream Protocol over **HTTP/SSE**; WebSockets and a Nuxt server are not required.
 - Gemini integration through LangChain, including real agent tool calling.
 - A `get_candidate_photo` tool whose result appears inline as a custom photo card.
+- Curated professional knowledge covering Jeyker's profile, employers, education, skills and projects.
+- `get_profile_section` and `search_experience` tools with English/Spanish keyword retrieval.
+- Answers grounded in verified knowledge files, with source references rendered directly in the chat.
+- The selected interface language is sent to the agent, allowing Spanish or English answers from one English-language knowledge base.
 - Extensible typed message parts for photos, technology badges and project cards.
 - An approval component prepared for human-in-the-loop tools; an actual approval-required backend tool is still pending.
 - English and Spanish localization with browser-language detection, an English fallback and a persistent language switcher.
@@ -31,7 +35,7 @@ A recruiter should eventually be able to ask:
 - Can you show his profile photo, relevant projects or supporting sources?
 - Can you send Jeyker a message after obtaining explicit approval?
 
-The current assistant can stream answers and execute the photo tool. A curated knowledge base, grounded retrieval, source citations and recruiter contact workflows are planned; they are not yet implemented.
+The current assistant can stream answers, search curated professional records, cite its knowledge sources and execute the photo tool. Vector-based semantic retrieval, durable persistence and recruiter contact workflows remain planned.
 
 ## Current architecture
 
@@ -41,7 +45,9 @@ flowchart TD
     Frontend -->|AI SDK over HTTP/SSE| API[FastAPI chat API]
     API --> Agent[LangChain agent]
     Agent --> Gemini[Google Gemini]
+    Agent --> Knowledge[Curated professional knowledge]
     Agent --> Photo[get_candidate_photo]
+    Knowledge -->|Verified source references| Frontend
     Photo -->|Custom message part| Frontend
     GitHub[GitHub Actions] --> AzureWeb[Azure Static Web Apps]
     Docker[Backend Docker image] --> AzureAPI[Azure Container Apps]
@@ -66,6 +72,9 @@ The project uses Nuxt UI as a Vue component library. It does **not** require Nux
 - `POST /chat/stream` for the AI SDK UI Message Stream Protocol.
 - `GET /health` for a basic health check.
 - LangChain agent backed by Google Gemini.
+- English-language JSON/Markdown knowledge files loaded by typed profile and experience tools.
+- Bilingual keyword search for professional experience and projects.
+- Locale-aware system prompts that translate verified facts into English or Spanish.
 - Typed streaming events and custom candidate-photo message parts.
 - Environment-based configuration for the model API key, CORS and deployment settings.
 
@@ -133,6 +142,7 @@ awesome-ai-profile/
 │       └── views/               # Recruiter-facing chat
 ├── backend/                     # FastAPI + LangChain + Gemini
 │   ├── agents/                  # Agent and callable tools
+│   ├── knowledge/               # Curated profile, experience, education, skills and projects
 │   ├── routes/                  # Chat API endpoints
 │   ├── schemas/                 # Pydantic request/event models
 │   ├── services/                # Agent and AI SDK SSE adapters
@@ -185,14 +195,16 @@ Checked items correspond to functionality present in the repository; unchecked i
 
 **Goal:** make answers factual, grounded and traceable.
 
-- [ ] Convert Jeyker's CV, projects, education and skills into curated documents.
+- [x] Convert Jeyker's CV, projects, education and skills into curated documents.
+- [x] Search verified professional experience using English or Spanish keywords.
 - [ ] Implement document ingestion and chunking.
 - [ ] Generate embeddings.
 - [ ] Configure PostgreSQL with pgvector.
 - [ ] Implement semantic retrieval.
-- [ ] Build grounded prompts from retrieved context.
-- [ ] Cite supporting sources in the chat interface.
-- [ ] Add retrieval and grounded-answer tests.
+- [x] Build grounded prompts around verified knowledge-tool results.
+- [x] Cite supporting knowledge sources in the chat interface.
+- [x] Add bilingual keyword-retrieval and knowledge-integrity tests.
+- [ ] Add end-to-end grounded-answer evaluation tests.
 
 ### Phase 3 — Controlled agent tools
 
@@ -204,8 +216,8 @@ Checked items correspond to functionality present in the repository; unchecked i
 - [x] Prepare an approval UI for human-in-the-loop interactions.
 - [ ] Introduce an explicit LangGraph workflow when orchestration complexity requires it.
 - [ ] Model durable agent state explicitly.
-- [ ] Implement `search_experience`.
-- [ ] Implement `get_profile_section`.
+- [x] Implement `search_experience`.
+- [x] Implement `get_profile_section`.
 - [ ] Implement `create_contact_request`.
 - [ ] Require and enforce approval before side-effecting tools run.
 - [ ] Add tool authorization, rate limits and audit logs.
@@ -289,13 +301,13 @@ Only after the grounded recruiter experience and controlled tools work end to en
 | Capability | Current evidence | Next evidence |
 | --- | --- | --- |
 | Vue / TypeScript | Nuxt UI recruiter chat, typed message parts and responsive UI | Component and end-to-end tests |
-| AI application engineering | AI SDK streaming, Gemini integration and LangChain agent | Grounded retrieval and model evaluations |
-| Tool calling | `get_candidate_photo` and inline custom photo rendering | Recruiter contact and approval-gated tools |
+| AI application engineering | AI SDK streaming, Gemini, LangChain and source-grounded professional answers | Semantic retrieval and model evaluations |
+| Tool calling | Profile search, verified knowledge sections and inline photo rendering | Recruiter contact and approval-gated tools |
 | APIs | FastAPI JSON/SSE endpoints, Pydantic validation and health checks | API integration tests and rate limiting |
 | Testing | Backend unit tests and frontend production type checks | CI test automation, E2E and AI evals |
 | Docker / Azure | Backend Dockerfile, ACR/Container Apps commands and Static Web Apps | Automated backend delivery and monitoring |
 | CI/CD | GitHub Actions frontend deployment from `main` | Full frontend/backend quality gates |
-| RAG / vector search | Local PostgreSQL groundwork only | Curated knowledge, pgvector, embeddings and citations |
+| RAG / vector search | Curated knowledge, bilingual keyword retrieval and source citations | pgvector, embeddings and semantic retrieval |
 | Responsible AI | Server-side tool execution and an approval-ready interface | Enforced approvals, authorization and audit logs |
 
 ## Engineering principles

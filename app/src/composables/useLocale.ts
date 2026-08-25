@@ -31,6 +31,7 @@ const translations = {
     lightMode: 'Switch to light mode',
     darkMode: 'Switch to dark mode',
     switchLanguage: 'Switch language to Spanish',
+    verifiedSource: 'Verified source',
   },
   es: {
     documentTitle: 'Django IA · Jeyker Salinas',
@@ -60,6 +61,7 @@ const translations = {
     lightMode: 'Cambiar al modo claro',
     darkMode: 'Cambiar al modo oscuro',
     switchLanguage: 'Cambiar idioma a inglés',
+    verifiedSource: 'Fuente verificada',
   },
 } as const
 
