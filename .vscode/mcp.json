@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "bootstrap-vue-next": {
+      "command": "bootstrap-vue-next-mcp"
+    }
+  }
+}

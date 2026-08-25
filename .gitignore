@@ -1,0 +1,39 @@
+.env.make
+
+# Python / backend
+backend/.venv
+backend/.env
+*__pycache__/
+backend/*.py[cod]
+
+# Node / frontend
+app/logs
+app/*.log
+app/npm-debug.log*
+app/yarn-debug.log*
+app/yarn-error.log*
+app/pnpm-debug.log*
+app/lerna-debug.log*
+app/node_modules
+app/.DS_Store
+app/dist
+app/dist-ssr
+app/coverage
+app/*.local
+app/.idea
+app/*.suo
+app/*.ntvs*
+app/*.njsproj
+app/*.sln
+app/*.sw?
+app/*.tsbuildinfo
+app/.eslintcache
+app/cypress/videos/
+app/cypress/screenshots/
+app/__screenshots__/
+app/*.timestamp-*-*.mjs
+app/*.env*
+
+# Editor files inside app
+app/.vscode/*
+!app/.vscode/extensions.json
