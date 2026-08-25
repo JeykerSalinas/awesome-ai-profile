@@ -124,11 +124,13 @@ This repository is designed to demonstrate those capabilities in one small but c
 - Vue 3
 - TypeScript
 - Vite
+- Nuxt UI + Tailwind CSS
+- Vercel AI SDK for Vue (`@ai-sdk/vue`)
 - Pinia
 - Vue Router
 - Vitest
 - Playwright
-- SSE or WebSockets for streamed responses
+- HTTP/SSE with the AI SDK UI Message Stream Protocol
 
 Why Vue?
 

@@ -1,165 +1,174 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { StreamEvent } from '@/types/events'
-import { isStreamEvent } from '@/types/events'
+import { computed, ref } from 'vue'
+import { useChat } from '@ai-sdk/vue'
+import { DefaultChatTransport } from 'ai'
 
-type AssistantImage = {
-  src: string
-  alt: string
-}
+import ChatMessageContent from '@/components/chat/ChatMessageContent.vue'
+import type { ProfileMessage } from '@/types/chat'
 
-const message = ref('')
-const assistantMessage = ref('')
-const assistantImages = ref<AssistantImage[]>([])
-const errorMessage = ref('')
-const isLoading = ref(false)
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const input = ref('')
 
-const sendMessage = async () => {
-  if (!message.value.trim()) return
+const suggestions = [
+  { icon: 'i-lucide-sparkles', label: 'Why should we hire Jeyker?' },
+  { icon: 'i-lucide-braces', label: 'What has he built with Vue and TypeScript?' },
+  { icon: 'i-lucide-brain-circuit', label: 'Tell me about his AI experience.' },
+  { icon: 'i-lucide-camera', label: 'Show me a picture of Jeyker.' },
+]
 
-  assistantMessage.value = ''
-  assistantImages.value = []
-  errorMessage.value = ''
-  isLoading.value = true
-  try {
-    const response = await fetch(`${apiBaseUrl}/chat/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: message.value,
-      }),
-    })
+const {
+  messages,
+  status,
+  error,
+  sendMessage,
+  regenerate,
+  stop,
+  addToolApprovalResponse,
+} = useChat<ProfileMessage>({
+  transport: new DefaultChatTransport<ProfileMessage>({
+    api: `${apiBaseUrl}/chat/stream`,
+  }),
+})
 
-    if (!response.ok) {
-      const detail = await extractErrorMessage(response)
-      throw new Error(detail || `Request failed with status ${response.status}`)
-    }
+const hasMessages = computed(() => messages.value.length > 0)
 
-    if (!response.body) {
-      throw new Error('No response body')
-    }
+function submitMessage(event: Event) {
+  event.preventDefault()
+  const text = input.value.trim()
+  if (!text || status.value === 'streaming' || status.value === 'submitted') return
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-
-      buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed) continue
-
-        const parsed: unknown = JSON.parse(trimmed)
-        if (isStreamEvent(parsed)) {
-          handleStreamEvent(parsed)
-        }
-      }
-
-      if (done) break
-    }
-
-    if (buffer.trim()) {
-      const parsed: unknown = JSON.parse(buffer)
-      if (isStreamEvent(parsed)) {
-        handleStreamEvent(parsed)
-      }
-    }
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unexpected error'
-  } finally {
-    isLoading.value = false
-  }
+  input.value = ''
+  void sendMessage({ text })
 }
 
-const extractErrorMessage = async (response: Response) => {
-  try {
-    const payload: unknown = await response.json()
-    if (
-      payload &&
-      typeof payload === 'object' &&
-      'detail' in payload &&
-      typeof payload.detail === 'string'
-    ) {
-      return payload.detail
-    }
-  } catch {
-    return ''
-  }
-
-  return ''
+function sendSuggestion(text: string) {
+  if (status.value === 'ready' || status.value === 'error') void sendMessage({ text })
 }
 
-const handleStreamEvent = (event: StreamEvent) => {
-  if (event.event === 'message_delta') {
-    assistantMessage.value += event.data.text
-    return
-  }
-
-  if (event.event === 'error') {
-    throw new Error(event.data.message)
-  }
-
-  if (event.event === 'image') {
-    assistantImages.value.push(event.data)
-  }
+function respondToApproval(approvalId: string, approved: boolean) {
+  void addToolApprovalResponse({ id: approvalId, approved })
 }
 </script>
 
 <template>
-  <main class="container py-5">
-    <h1 class="mb-4">Awesome AI Profile</h1>
-
-    <div class="mb-3">
-      <label class="form-label">Ask something</label>
-
-      <input
-        v-model="message"
-        class="form-control"
-        placeholder="Why should we hire Jeyker?"
-        @keyup.enter="sendMessage"
-      />
-    </div>
-
-    <button
-      class="btn btn-primary"
-      :disabled="isLoading"
-      @click="sendMessage"
+  <main class="min-h-dvh px-3 py-3 sm:px-6 sm:py-5">
+    <section
+      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-stone-200/80 bg-white/75 shadow-[0_28px_100px_-45px_rgba(50,8,8,0.35)] backdrop-blur sm:min-h-[calc(100dvh-2.5rem)]"
     >
-      {{ isLoading ? 'Thinking...' : 'Send' }}
-    </button>
+      <header class="flex items-center justify-between border-b border-stone-200/80 px-5 py-4 sm:px-8">
+        <div class="flex min-w-0 items-center gap-3">
+          <img
+            src="/django_design/django-app-icon-dark.svg"
+            alt="Django, Jeyker's AI assistant"
+            class="size-11 rounded-2xl"
+          />
+          <div>
+            <p class="text-sm font-semibold tracking-tight text-stone-900">Django AI</p>
+            <p class="text-xs text-stone-500">Jeyker's professional sidekick</p>
+          </div>
+        </div>
+        <UBadge color="success" variant="subtle" class="rounded-full px-3 py-1">
+          <span class="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />
+          Available for work
+        </UBadge>
+      </header>
 
-    <div
-      v-if="errorMessage"
-      class="alert alert-danger mt-3"
-      role="alert"
-    >
-      {{ errorMessage }}
-    </div>
+      <div class="relative flex min-h-0 flex-1 flex-col">
+        <div
+          v-if="!hasMessages"
+          class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-14 text-center sm:px-10"
+        >
+          <div class="mx-auto mb-7 grid size-20 place-items-center rounded-[1.75rem] bg-[#fbefce]">
+            <img src="/django_design/django-app-icon-dark.svg" alt="Django" class="size-14" />
+          </div>
+          <UBadge color="primary" variant="subtle" class="mx-auto mb-4 rounded-full px-3 py-1">
+            Interactive AI portfolio
+          </UBadge>
+          <h1 class="text-balance text-4xl font-semibold tracking-tight text-stone-900 sm:text-5xl">
+            Meet Jeyker, <span class="text-primary">through Django.</span>
+          </h1>
+          <p class="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-stone-600">
+            Ask anything about his engineering experience, AI projects, favorite technologies,
+            or why this résumé has its own canine assistant.
+          </p>
+          <div class="mt-10 grid gap-3 text-left sm:grid-cols-2">
+            <button
+              v-for="suggestion in suggestions"
+              :key="suggestion.label"
+              type="button"
+              class="group flex items-center gap-3 rounded-2xl border border-stone-200 bg-white/80 px-4 py-4 text-sm text-stone-700 transition hover:border-red-200 hover:bg-red-50/50"
+              @click="sendSuggestion(suggestion.label)"
+            >
+              <UIcon
+                :name="suggestion.icon"
+                class="size-5 shrink-0 text-stone-400 transition group-hover:text-primary"
+              />
+              <span>{{ suggestion.label }}</span>
+            </button>
+          </div>
+        </div>
 
-    <div
-      v-if="assistantMessage || assistantImages.length"
-      class="mt-4 p-3 border rounded"
-    >
-      <div v-if="assistantMessage">
-        {{ assistantMessage }}
+        <UContainer v-else class="flex w-full max-w-4xl flex-1 flex-col px-4 py-5 sm:px-8">
+          <UChatMessages
+            :messages="messages"
+            :status="status"
+            :assistant="{ avatar: { src: '/django_design/django-app-icon-dark.svg', alt: 'Django' } }"
+            should-auto-scroll
+            class="flex-1"
+          >
+            <template #content="{ message }">
+              <ChatMessageContent
+                :message="message as ProfileMessage"
+                @approve="respondToApproval($event, true)"
+                @reject="respondToApproval($event, false)"
+              />
+            </template>
+            <template #indicator>
+              <div class="flex items-center gap-2 text-stone-500">
+                <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin text-primary" />
+                <UChatShimmer text="Django is thinking..." class="text-sm" />
+              </div>
+            </template>
+          </UChatMessages>
+        </UContainer>
+
+        <div class="sticky bottom-0 mx-auto w-full max-w-4xl px-4 pb-4 pt-2 sm:px-8 sm:pb-6">
+          <UAlert
+            v-if="error"
+            color="error"
+            variant="soft"
+            icon="i-lucide-circle-alert"
+            :description="error.message"
+            class="mb-3"
+          />
+          <UChatPrompt
+            v-model="input"
+            :error="error"
+            placeholder="Ask Django about Jeyker..."
+            color="neutral"
+            variant="subtle"
+            class="rounded-3xl border border-stone-200 bg-white shadow-lg shadow-stone-200/40"
+            @submit="submitMessage"
+          >
+            <template #footer>
+              <span class="flex items-center gap-1.5 text-xs text-stone-500">
+                <UIcon name="i-lucide-sparkles" class="size-3.5 text-primary" />
+                Powered by Gemini & LangChain
+              </span>
+              <UChatPromptSubmit
+                :status="status"
+                color="primary"
+                size="sm"
+                @stop="stop()"
+                @reload="regenerate()"
+              />
+            </template>
+          </UChatPrompt>
+          <p class="mt-3 text-center text-xs text-stone-400">
+            Built with Vue 3, Nuxt UI, FastAPI and the AI SDK.
+          </p>
+        </div>
       </div>
-
-      <img
-        v-for="(image, index) in assistantImages"
-        :key="`${image.src}-${index}`"
-        :src="image.src"
-        :alt="image.alt"
-        class="img-fluid rounded mt-3"
-      />
-    </div>
+    </section>
   </main>
 </template>

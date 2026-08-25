@@ -1,0 +1,36 @@
+@import 'tailwindcss' theme(static);
+@import '@nuxt/ui';
+
+@theme static {
+  --font-sans: 'Inter', 'Avenir Next', system-ui, sans-serif;
+  --color-django-red: #eb0808;
+  --color-django-brown: #320808;
+  --color-django-cream: #fbefce;
+  --color-django-sand: #ccb68c;
+  --color-django-terracotta: #e56d58;
+}
+
+:root {
+  --ui-primary: var(--color-django-red);
+  --ui-container: 76rem;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-django-brown);
+  background:
+    radial-gradient(circle at 8% 10%, rgb(229 109 88 / 12%), transparent 32%),
+    radial-gradient(circle at 90% 12%, rgb(235 8 8 / 7%), transparent 25%),
+    #fffaf0;
+}
+
+::selection {
+  color: white;
+  background: var(--color-django-red);
+}

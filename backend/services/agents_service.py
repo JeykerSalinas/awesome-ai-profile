@@ -7,6 +7,8 @@ async def generate_response(message: str) -> str:
     return await ask_agent(message)
 
 
-async def generate_response_stream(message: str) -> AsyncIterator[AgentStreamEvent]:
-    async for chunk in stream_agent(message):
+async def generate_response_stream(
+    messages: list[dict[str, str]],
+) -> AsyncIterator[AgentStreamEvent]:
+    async for chunk in stream_agent(messages):
         yield chunk
