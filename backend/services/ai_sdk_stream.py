@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from agents.agent import AgentStreamEvent
+    from agents.events import AgentStreamEvent
 
 
 def encode_sse_event(event: dict[str, object]) -> str:
@@ -32,6 +32,23 @@ async def stream_ui_messages(
                 yield event
 
         async for event in agent_events():
+            if event["type"] == "feature":
+                yield encode_sse_event({
+                    "type": "data-feature-used", "id": f"feature-{event['feature']}",
+                    "data": {"feature": event["feature"]},
+                })
+                continue
+
+            if event["type"] == "activity":
+                # Reuse the same ID: AI SDK updates one row instead of appending duplicates.
+                # Activity does not split a text block (which could break streamed Markdown).
+                yield encode_sse_event({
+                    "type": "data-agent-activity",
+                    "id": f"activity-{event['data']['id']}",
+                    "data": event["data"],
+                })
+                continue
+
             if event["type"] == "message_delta":
                 if text_id is None:
                     text_id = f"text-{uuid4().hex}"
@@ -69,7 +86,7 @@ async def stream_ui_messages(
 
         yield encode_sse_event({"type": "finish-step"})
         yield encode_sse_event({"type": "finish", "finishReason": "stop"})
-    except Exception as exc:
-        yield encode_sse_event({"type": "error", "errorText": str(exc)})
+    except Exception:
+        yield encode_sse_event({"type": "error", "errorText": "The response could not be completed. Please try again."})
 
     yield "data: [DONE]\n\n"

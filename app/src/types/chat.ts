@@ -25,7 +25,18 @@ export interface UserDocumentData {
   filename: string
 }
 
+export interface AgentActivityData {
+  id: string
+  kind: 'model' | 'tool'
+  status: 'running' | 'completed' | 'error' | 'interrupted'
+  tool_name?: string
+  duration_ms?: number
+  result_count?: number
+}
+
 export type ProfileDataParts = {
+  'agent-activity': AgentActivityData
+  'feature-used': { feature: 'streaming' }
   'candidate-photo': CandidatePhotoData
   technologies: TechnologyData
   project: ProjectData

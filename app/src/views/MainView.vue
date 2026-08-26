@@ -8,6 +8,7 @@ import ChatMessageContent from "@/components/chat/ChatMessageContent.vue";
 import TechnologyTourHost from "@/components/tour/TechnologyTourHost.vue";
 import TechnologyTourLauncher from "@/components/tour/TechnologyTourLauncher.vue";
 import { useLocale } from "@/composables/useLocale";
+import { provideFeatureDiscovery } from "@/composables/useFeatureDiscovery";
 import type { ProfileMessage } from "@/types/chat";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -64,6 +65,7 @@ const {
   }),
 });
 
+provideFeatureDiscovery(messages);
 const hasMessages = computed(() => messages.value.length > 0);
 const isUploading = computed(
   () => composerDocument.value?.status === "uploading"
@@ -357,6 +359,10 @@ useEventListener(window, "keydown", stopTourPulse);
             <template #content="{ message }">
               <ChatMessageContent
                 :message="message as ProfileMessage"
+                :active="
+                  (status === 'streaming' || status === 'submitted') &&
+                  (message as ProfileMessage).id === messages[messages.length - 1]?.id
+                "
                 :hide-resources="
                   status === 'streaming' &&
                   (message as ProfileMessage).role === 'assistant' &&

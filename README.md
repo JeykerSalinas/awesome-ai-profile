@@ -24,6 +24,8 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - English and Spanish localization with browser-language detection, an English fallback and a persistent language switcher.
 - System-aware light/dark mode with a persistent toggle and Django's brand palette.
 - An optional bilingual **Behind the chat** guided tour: seven animated chapters, UI spotlights and links to the actual implementation.
+- An expandable **Agent activity** panel with observed model/tool executions, statuses, durations and retrieval result counts (not private chain of thought).
+- Contextual EN/ES **Why is this feature so cool?** explanations on first use of eight features; local content with no extra LLM calls.
 - Backend unit tests for request validation, conversation history, stream ordering and provider errors.
 - Azure Static Web Apps deployment through GitHub Actions, plus Docker/Azure Container Apps deployment commands for the backend.
 
@@ -41,6 +43,10 @@ A recruiter should eventually be able to ask:
 The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources and execute the photo tool. Durable cloud storage and recruiter contact workflows remain planned.
 
 ## Current architecture
+
+### Activity and contextual learning
+
+Assistant messages expose real execution events in **Agent activity / Actividad del agente**. The first use of a feature introduces an optional explanation of its value, implementation and limitations. Repeated uses do not repeat the introduction; the original explanation remains available. No raw prompts, tool arguments or document excerpts are exposed by the activity feed, and opening explanations makes no API call. See [the activity implementation guide](docs/agent-activity.md) for the event contract, privacy boundaries, error handling and extension points.
 
 ### Explore the engineering story
 
@@ -186,11 +192,11 @@ make acr-login          # Authenticate with Azure Container Registry
 make deploy-back        # Build, push and deploy the backend to Azure
 ```
 
-Run the tour's dependency-free content and positioning tests with Node 22.18+ or 24.12+:
+Run frontend tests (Markdown, activity, AI SDK data reconciliation and tour) with Node 22.18+ or 24.12+:
 
 ```bash
 cd app
-npm run test:tour
+npm test
 ```
 
 Run the existing backend tests with:
