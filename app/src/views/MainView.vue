@@ -9,6 +9,7 @@ import TechnologyTourHost from "@/components/tour/TechnologyTourHost.vue";
 import TechnologyTourLauncher from "@/components/tour/TechnologyTourLauncher.vue";
 import { useLocale } from "@/composables/useLocale";
 import { provideFeatureDiscovery } from "@/composables/useFeatureDiscovery";
+import { provideContactFlow } from "@/composables/useContactFlow";
 import type { ProfileMessage } from "@/types/chat";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -66,6 +67,7 @@ const {
 });
 
 provideFeatureDiscovery(messages);
+provideContactFlow(messages, apiBaseUrl);
 const hasMessages = computed(() => messages.value.length > 0);
 const isUploading = computed(
   () => composerDocument.value?.status === "uploading"

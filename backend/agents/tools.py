@@ -8,6 +8,12 @@ from services.vector_store_service import get_vector_store_service
 
 
 @tool
+def offer_contact() -> str:
+    """Offer two contact choices: public contact details or an editable demo email. Does not send anything."""
+    return json.dumps({"contact_offer": True, "delivery": "simulation_only"})
+
+
+@tool
 def get_candidate_photo() -> str:
     """Get Jeyker's professional profile photo."""
     return "/jeyker.jpg"

@@ -6,6 +6,8 @@ import CandidatePhotoCard from '@/components/chat/CandidatePhotoCard.vue'
 import ToolApprovalCard from '@/components/chat/ToolApprovalCard.vue'
 import AgentActivityPanel from '@/components/chat/AgentActivityPanel.vue'
 import FeatureDiscoveries from '@/components/chat/FeatureDiscoveries.vue'
+import ContactCard from '@/components/chat/ContactCard.vue'
+import { useContactFlow } from '@/composables/useContactFlow'
 import { useLocale } from '@/composables/useLocale'
 import { renderMarkdown } from '@/utils/chatMarkdown'
 import type { ProfileMessage } from '@/types/chat'
@@ -22,6 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const { text } = useLocale()
+const contact = useContactFlow(() => props.message, () => !!props.active)
 
 const resourceParts = computed(() =>
   props.message.parts.filter(
@@ -32,7 +35,8 @@ const resourceParts = computed(() =>
 const contentParts = computed(() =>
   props.message.parts.filter(
     part => part.type !== 'data-source' && part.type !== 'data-user-document'
-      && part.type !== 'data-agent-activity' && part.type !== 'data-feature-used',
+      && part.type !== 'data-agent-activity' && part.type !== 'data-feature-used'
+      && part.type !== 'data-contact-offer',
   ),
 )
 
@@ -146,6 +150,7 @@ const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.locat
       </div>
     </Transition>
     <FeatureDiscoveries :message="message" />
+    <ContactCard v-if="contact.visible.value && contact.controller" :controller="contact.controller" />
   </div>
 </template>
 

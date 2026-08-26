@@ -8,6 +8,7 @@ from agents.events import ActivityStatus, AgentActivityData, AgentStreamEvent
 
 PUBLIC_TOOLS = frozenset({
     "get_candidate_photo", "get_profile_section", "search_experience", "search_documents",
+    "offer_contact",
 })
 
 
@@ -42,6 +43,7 @@ async def observe_agent_stream(agent: Any, messages: list[dict[str, str]]) -> As
     emitted_sources: set[str] = set()
     emitted_photos: set[str] = set()
     streaming_observed = False
+    contact_offered = False
 
     def finish(run_id: str, status: ActivityStatus, result_count: int | None = None) -> AgentStreamEvent:
         activity, started = pending.pop(run_id)
@@ -101,6 +103,12 @@ async def observe_agent_stream(agent: Any, messages: list[dict[str, str]]) -> As
                 results = payload.get("results")
                 results = results if isinstance(results, list) else None
                 yield finish(run_id, "completed", len(results) if results is not None else None)
+
+                if name == "offer_contact":
+                    if payload.get("contact_offer") is True and not contact_offered:
+                        contact_offered = True
+                        yield {"type": "contact_offer"}
+                    continue
 
                 if name == "get_candidate_photo":
                     src = getattr(output, "content", output)

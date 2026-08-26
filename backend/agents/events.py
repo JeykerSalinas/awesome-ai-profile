@@ -38,4 +38,8 @@ class AgentFeatureEvent(TypedDict):
     feature: Literal["streaming"]
 
 
-AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent | AgentSourceEvent | AgentActivityEvent | AgentFeatureEvent
+class AgentContactOfferEvent(TypedDict):
+    type: Literal["contact_offer"]
+
+
+AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent | AgentSourceEvent | AgentActivityEvent | AgentFeatureEvent | AgentContactOfferEvent

@@ -21,6 +21,7 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - The selected interface language is sent to the agent, allowing Spanish or English answers from one English-language knowledge base.
 - Extensible typed message parts for photos, technology badges and project cards.
 - An approval component prepared for human-in-the-loop tools; an actual approval-required backend tool is still pending.
+- Contact choices inside the chat: public phone/email/GitHub or an editable email card with required sender name, explicit simulated-send confirmation and one server-enforced submission per tab session. **No real email or MCP connection yet.**
 - English and Spanish localization with browser-language detection, an English fallback and a persistent language switcher.
 - System-aware light/dark mode with a persistent toggle and Django's brand palette.
 - An optional bilingual **Behind the chat** guided tour: seven animated chapters, UI spotlights and links to the actual implementation.
@@ -40,9 +41,13 @@ A recruiter should eventually be able to ask:
 - Can you show his profile photo, relevant projects or supporting sources?
 - Can you send Jeyker a message after obtaining explicit approval?
 
-The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources and execute the photo tool. Durable cloud storage and recruiter contact workflows remain planned.
+The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources, execute the photo tool and offer a contact flow. The editable contact card currently registers only a simulation; real email delivery and durable cloud storage remain planned.
 
 ## Current architecture
+
+### Contact flow (simulation)
+
+The first assistant answer offers public contact details or an editable email card. The `offer_contact` tool can also bring up those choices when the visitor asks to get in touch. Name, subject and body are required; a reply email is optional. The user's simulated-send click confirms the current edited content. FastAPI validates the request and atomically permits one simulation per contact session, including safe retries. A reload does not reset the quota. No email is sent, no MCP is connected and form contents do not enter the LLM history. See [the contact flow guide](docs/contact-flow.md) for the session definition, privacy and deliberate demo limitations.
 
 ### Activity and contextual learning
 
@@ -297,6 +302,7 @@ Checked items correspond to functionality present in the repository; unchecked i
 - [x] Implement `search_experience`.
 - [x] Implement `get_profile_section`.
 - [ ] Implement `create_contact_request`.
+- [x] Add public contact choices and an editable, explicitly confirmed contact simulation with required sender name and a one-per-session limit.
 - [ ] Require and enforce approval before side-effecting tools run.
 - [ ] Add tool authorization, rate limits and audit logs.
 - [ ] Test invalid, malicious and denied tool requests.

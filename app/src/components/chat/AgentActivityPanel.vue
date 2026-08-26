@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useLocale } from '@/composables/useLocale'
 import { activityStatus, messageActivities } from '@/features/insights/activity'
+import { contactCopy } from '@/features/contact/copy'
 import { insightCopy, features, toolFeatures } from '@/features/insights/catalog'
 import type { AgentActivityData, ProfileMessage } from '@/types/chat'
 
@@ -16,6 +17,7 @@ const icons = {
   error: 'i-lucide-circle-alert', interrupted: 'i-lucide-circle-pause',
 }
 function label(activity: AgentActivityData) {
+  if (activity.tool_name === 'offer_contact') return contactCopy[locale.value].title
   const feature = activity.tool_name ? toolFeatures[activity.tool_name] : undefined
   return feature ? features[feature][locale.value].title : copy.value.model
 }

@@ -32,6 +32,10 @@ async def stream_ui_messages(
                 yield event
 
         async for event in agent_events():
+            if event["type"] == "contact_offer":
+                yield encode_sse_event({"type": "data-contact-offer", "id": "contact-offer", "data": {"mode": "demo"}})
+                continue
+
             if event["type"] == "feature":
                 yield encode_sse_event({
                     "type": "data-feature-used", "id": f"feature-{event['feature']}",

@@ -18,6 +18,7 @@ export function messageFeatures(message: ProfileMessage): FeatureId[] {
   const used = new Set<FeatureId>()
   for (const activity of messageActivities(message)) {
     if (activity.kind !== 'tool' || !activity.tool_name) continue
+    if (activity.tool_name === 'offer_contact') { used.add('tools'); continue }
     const feature = toolFeatures[activity.tool_name]
     if (!feature) continue
     used.add('tools')
