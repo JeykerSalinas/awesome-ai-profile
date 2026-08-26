@@ -1,25 +1,38 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, useTemplateRef } from "vue";
 import { useChat } from "@ai-sdk/vue";
-import { useDark } from "@vueuse/core";
+import { useDark, useEventListener, useStorage } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
 
 import ChatMessageContent from "@/components/chat/ChatMessageContent.vue";
+import TechnologyTourHost from "@/components/tour/TechnologyTourHost.vue";
+import TechnologyTourLauncher from "@/components/tour/TechnologyTourLauncher.vue";
 import { useLocale } from "@/composables/useLocale";
+import { provideFeatureDiscovery } from "@/composables/useFeatureDiscovery";
 import type { ProfileMessage } from "@/types/chat";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const input = ref("");
+const technologyTour =
+  useTemplateRef<InstanceType<typeof TechnologyTourHost>>("technologyTour");
 const fileInput = ref<HTMLInputElement | null>(null);
-const uploadedDocuments = ref<Array<{ id: string; filename: string }>>([]);
-const isUploading = ref(false);
+type ComposerDocument = {
+  localId: string;
+  filename: string;
+  status: "uploading" | "ready" | "error";
+  serverId?: string;
+};
+
+const composerDocument = ref<ComposerDocument | null>(null);
+const pendingUpload = ref<Promise<void> | null>(null);
+const requestDocumentIds = ref<string[]>([]);
 const uploadError = ref("");
 const isDark = useDark();
+const hasSeenTour = useStorage("django-tour-seen", false);
+const hasInteractedSinceLoad = ref(false);
 const { locale, text } = useLocale();
-// const messages = ref([{"parts":[{"type":"text","text":"Why should we hire Jeyker?"}],"id":"U3u32FLC4XP4T2T2","role":"user","metadata":"__vue_devtool_undefined__"},{"id":"assistant-aea52d36459942af8fefb122effb93a0","metadata":"__vue_devtool_undefined__","role":"assistant","parts":[{"type":"step-start"},{"type":"data-source","id":"source-b66cf3d921e74cf8b19eb2d03ab0a2dc","data":{"path":"knowledge/profile.json"}},{"type":"text","text":"Jeyker Salinas is a Software Engineer who specializes in building high-quality, product-oriented applications. You should consider him for your team because he brings a unique combination of expertise that bridges modern web development and practical Artificial Intelligence.\n\nHere are the key reasons why Jeyker is a strong candidate:\n\n*   **Frontend Expertise:** He has a deep focus on frontend engineering, specifically using **Vue.js** and **TypeScript** to create scalable and maintainable architectures.\n*   **AI & RAG Integration:** Jeyker is highly proficient in developing conversational interfaces for Large Language Models (LLMs) and implementing **Retrieval-Augmented Generation (RAG)** applications.\n*   **Full-Stack Capability:** He is experienced in backend integration, particularly with **Python and FastAPI**, allowing him to work effectively across the stack.\n*   **Product Mindset:** He is not just focused on writing code; he is committed to delivering software that is user-focused and aligned with product goals.\n\nIf you are looking for an engineer who can translate complex AI capabilities into intuitive, reliable web interfaces, Jeyker would be a valuable addition to your project.","providerMetadata":"__vue_devtool_undefined__","state":"done"}]}])
 const suggestionIcons = [
   "i-lucide-sparkles",
-  "i-lucide-braces",
   "i-lucide-brain-circuit",
   "i-lucide-camera",
 ];
@@ -28,6 +41,9 @@ const suggestions = computed(() =>
     icon: suggestionIcons[index] ?? "i-lucide-message-circle",
     label,
   }))
+);
+const shouldPulseTourLauncher = computed(
+  () => !hasSeenTour.value && !hasInteractedSinceLoad.value
 );
 
 const {
@@ -43,26 +59,82 @@ const {
     api: `${apiBaseUrl}/chat/stream`,
     body: () => ({
       locale: locale.value,
-      documents: uploadedDocuments.value.map((document) => document.id),
+      documents: requestDocumentIds.value,
     }),
   }),
 });
 
+provideFeatureDiscovery(messages);
 const hasMessages = computed(() => messages.value.length > 0);
+const isUploading = computed(
+  () => composerDocument.value?.status === "uploading"
+);
 
-function submitMessage(event: Event) {
+async function deleteUploadedDocument(documentId: string) {
+  try {
+    await fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // Ignore cleanup errors for temporary uploads.
+  }
+}
+
+async function submitMessage(event: Event) {
   event.preventDefault();
-  const text = input.value.trim();
-  if (!text || status.value === "streaming" || status.value === "submitted")
+  const messageText = input.value.trim();
+  if (
+    !messageText ||
+    status.value === "streaming" ||
+    status.value === "submitted"
+  )
     return;
 
+  if (pendingUpload.value) {
+    await pendingUpload.value;
+  }
+
+  if (composerDocument.value?.status === "error") return;
+
+  const activeDocument = composerDocument.value;
+  requestDocumentIds.value =
+    activeDocument?.status === "ready" && activeDocument.serverId
+      ? [activeDocument.serverId]
+      : [];
+
+  const messageParts: ProfileMessage["parts"] = [
+    { type: "text", text: messageText },
+  ];
+  if (activeDocument?.status === "ready") {
+    messageParts.unshift({
+      type: "data-user-document",
+      data: { filename: activeDocument.filename },
+    });
+  }
+
   input.value = "";
-  void sendMessage({ text });
+  composerDocument.value = null;
+  uploadError.value = "";
+
+  try {
+    await sendMessage({ parts: messageParts });
+  } finally {
+    requestDocumentIds.value = [];
+  }
 }
 
 function sendSuggestion(text: string) {
   if (status.value === "ready" || status.value === "error")
     void sendMessage({ text });
+}
+
+function stopTourPulse() {
+  hasInteractedSinceLoad.value = true;
+}
+
+function markTourAsSeen() {
+  hasSeenTour.value = true;
+  stopTourPulse();
 }
 
 function respondToApproval(approvalId: string, approved: boolean) {
@@ -74,10 +146,20 @@ async function uploadDocument(event: Event) {
   const file = target.files?.[0];
   if (!file) return;
 
-  isUploading.value = true;
+  const previousDocument = composerDocument.value;
+  if (previousDocument?.status === "ready" && previousDocument.serverId) {
+    void deleteUploadedDocument(previousDocument.serverId);
+  }
+
+  const localId = crypto.randomUUID();
+  composerDocument.value = {
+    localId,
+    filename: file.name,
+    status: "uploading",
+  };
   uploadError.value = "";
 
-  try {
+  const uploadTask = (async () => {
     const payload = new FormData();
     payload.append("file", file);
     payload.append("document_type", "other");
@@ -86,22 +168,62 @@ async function uploadDocument(event: Event) {
       body: payload,
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || text.value.documentUploadError);
-    uploadedDocuments.value.push({ id: result.id, filename: result.filename });
-  } catch (cause) {
-    uploadError.value = cause instanceof Error ? cause.message : text.value.documentUploadError;
-  } finally {
-    isUploading.value = false;
-    target.value = "";
-  }
+    if (!response.ok)
+      throw new Error(result.detail || text.value.documentUploadError);
+
+    if (composerDocument.value?.localId !== localId) {
+      await deleteUploadedDocument(result.id);
+      return;
+    }
+
+    composerDocument.value = {
+      localId,
+      filename: result.filename,
+      status: "ready",
+      serverId: result.id,
+    };
+  })()
+    .catch(async (cause) => {
+      if (composerDocument.value?.localId === localId) {
+        composerDocument.value = {
+          localId,
+          filename: file.name,
+          status: "error",
+        };
+        uploadError.value =
+          cause instanceof Error
+            ? cause.message
+            : text.value.documentUploadError;
+      }
+    })
+    .finally(() => {
+      if (pendingUpload.value === uploadTask) {
+        pendingUpload.value = null;
+      }
+      target.value = "";
+    });
+
+  pendingUpload.value = uploadTask;
+  await uploadTask;
 }
 
 function removeDocument(documentId: string) {
-  uploadedDocuments.value = uploadedDocuments.value.filter((document) => document.id !== documentId);
-  void fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
-    method: "DELETE",
-  }).catch(() => undefined);
+  if (composerDocument.value?.serverId === documentId) {
+    composerDocument.value = null;
+    uploadError.value = "";
+    void deleteUploadedDocument(documentId);
+  }
 }
+
+function removeComposerDocument() {
+  const documentId = composerDocument.value?.serverId;
+  composerDocument.value = null;
+  uploadError.value = "";
+  if (documentId) void deleteUploadedDocument(documentId);
+}
+
+useEventListener(window, "pointerdown", stopTourPulse, { passive: true });
+useEventListener(window, "keydown", stopTourPulse);
 </script>
 
 <template>
@@ -112,7 +234,7 @@ function removeDocument(documentId: string) {
       <header
         class="flex items-center justify-between gap-3 border-b border-(--django-border) px-5 py-4 sm:px-8"
       >
-        <div class="flex min-w-0 items-center gap-3">
+        <div data-tour="identity" class="flex min-w-0 items-center gap-3">
           <img
             src="/django_design/django-app-icon-dark.svg"
             alt="Django, Jeyker's AI assistant"
@@ -124,12 +246,12 @@ function removeDocument(documentId: string) {
             >
               Django AI
             </p>
-            <p class="text-xs text-(--django-muted)">
+            <p class="hidden text-xs text-(--django-muted) sm:block">
               {{ text.assistantDescription }}
             </p>
           </div>
         </div>
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div data-tour="preferences" class="flex items-center gap-2 sm:gap-3">
           <UBadge
             color="success"
             variant="subtle"
@@ -140,6 +262,10 @@ function removeDocument(documentId: string) {
             />
             {{ text.availableForWork }}
           </UBadge>
+          <TechnologyTourLauncher
+            variant="icon"
+            @open="technologyTour?.openTour()"
+          />
           <UButton
             icon="i-lucide-languages"
             :label="locale.toUpperCase()"
@@ -165,7 +291,7 @@ function removeDocument(documentId: string) {
       <div class="relative flex min-h-0 flex-1 flex-col overflow-auto">
         <div
           v-if="!hasMessages"
-          class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-14 text-center sm:px-10"
+          class="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-6 text-center sm:px-10"
         >
           <div
             class="mx-auto mb-7 grid size-20 place-items-center rounded-[1.75rem] bg-(--django-surface-soft)"
@@ -176,13 +302,6 @@ function removeDocument(documentId: string) {
               class="size-14"
             />
           </div>
-          <UBadge
-            color="primary"
-            variant="subtle"
-            class="mx-auto mb-4 rounded-full px-3 py-1"
-          >
-            {{ text.portfolioBadge }}
-          </UBadge>
           <h1
             class="text-balance text-4xl font-semibold tracking-tight text-(--django-heading) sm:text-5xl"
           >
@@ -194,7 +313,15 @@ function removeDocument(documentId: string) {
           >
             {{ text.introduction }}
           </p>
-          <div class="mt-10 grid gap-3 text-left sm:grid-cols-2">
+          <div
+            data-tour="conversation"
+            class="mt-6 grid gap-3 text-left sm:grid-cols-2"
+          >
+            <TechnologyTourLauncher
+              :pulse="shouldPulseTourLauncher"
+              :seen="hasSeenTour"
+              @open="technologyTour?.openTour()"
+            />
             <button
               v-for="suggestion in suggestions"
               :key="suggestion.label"
@@ -213,6 +340,7 @@ function removeDocument(documentId: string) {
 
         <UContainer
           v-else
+          data-tour="conversation"
           class="flex w-full max-w-4xl flex-1 flex-col px-4 py-5 sm:px-8"
         >
           <UChatMessages
@@ -220,7 +348,7 @@ function removeDocument(documentId: string) {
             :status="status"
             :assistant="{
               avatar: {
-                src: '/django_design/django-app-icon-dark.svg',
+                src: isDark ? '/django_design/django-isotype-inverse.svg':'/django_design/django-isotype.svg',
                 alt: 'Django',
               },
             }"
@@ -230,6 +358,15 @@ function removeDocument(documentId: string) {
             <template #content="{ message }">
               <ChatMessageContent
                 :message="message as ProfileMessage"
+                :active="
+                  (status === 'streaming' || status === 'submitted') &&
+                  (message as ProfileMessage).id === messages[messages.length - 1]?.id
+                "
+                :hide-resources="
+                  status === 'streaming' &&
+                  (message as ProfileMessage).role === 'assistant' &&
+                  (message as ProfileMessage).id === messages[messages.length - 1]?.id
+                "
                 @approve="respondToApproval($event, true)"
                 @reject="respondToApproval($event, false)"
               />
@@ -265,29 +402,57 @@ function removeDocument(documentId: string) {
             :description="uploadError"
             class="mb-3"
           />
-          <div v-if="uploadedDocuments.length" class="mb-3 flex flex-wrap gap-2">
+          <div v-if="composerDocument" class="mb-3 flex flex-wrap gap-2">
             <UBadge
-              v-for="document in uploadedDocuments"
-              :key="document.id"
+              :key="composerDocument.localId"
               color="primary"
               variant="subtle"
               class="gap-1.5 rounded-full px-3 py-1.5"
-              :title="text.uploadedDocument"
+              :title="
+                composerDocument.status === 'uploading'
+                  ? text.uploadingDocument
+                  : text.uploadedDocument
+              "
             >
-              <UIcon name="i-lucide-file-text" class="size-3.5" />
-              <span class="max-w-44 truncate">{{ document.filename }}</span>
+              <UIcon
+                :name="
+                  composerDocument.status === 'uploading'
+                    ? 'i-lucide-loader-circle'
+                    : composerDocument.status === 'error'
+                    ? 'i-lucide-file-warning'
+                    : 'i-lucide-file-text'
+                "
+                class="size-3.5"
+                :class="{
+                  'animate-spin': composerDocument.status === 'uploading',
+                }"
+              />
+              <span class="max-w-44 truncate">{{
+                composerDocument.filename
+              }}</span>
               <button
                 type="button"
                 :aria-label="text.removeDocument"
                 class="grid size-4 place-items-center rounded-full hover:bg-black/10"
-                @click="removeDocument(document.id)"
+                @click="
+                  composerDocument.serverId
+                    ? removeDocument(composerDocument.serverId)
+                    : removeComposerDocument()
+                "
               >
                 <UIcon name="i-lucide-x" class="size-3" />
               </button>
             </UBadge>
           </div>
-          <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="hidden" @change="uploadDocument" />
+          <input
+            ref="fileInput"
+            type="file"
+            accept="application/pdf,.pdf"
+            class="hidden"
+            @change="uploadDocument"
+          />
           <UChatPrompt
+            data-tour="composer"
             v-model="input"
             :error="error"
             :placeholder="text.placeholder"
@@ -297,12 +462,15 @@ function removeDocument(documentId: string) {
             @submit="submitMessage"
           >
             <template #footer>
-              <span class="flex items-center gap-1.5 text-xs text-(--django-muted)">
+              <span
+                class="flex items-center gap-1.5 text-xs text-(--django-muted)"
+              >
                 <UIcon name="i-lucide-sparkles" class="size-3.5 text-primary" />
                 {{ isUploading ? text.uploadingDocument : text.poweredBy }}
               </span>
               <div class="flex items-center gap-1">
                 <UButton
+                  data-tour="upload"
                   icon="i-lucide-paperclip"
                   type="button"
                   :aria-label="text.uploadDocument"
@@ -323,11 +491,19 @@ function removeDocument(documentId: string) {
               </div>
             </template>
           </UChatPrompt>
-          <p class="mt-3 text-center text-xs text-(--django-muted)">
+          <p
+            data-tour="stack"
+            class="mt-3 text-center text-xs text-(--django-muted)"
+          >
             {{ text.builtWith }}
           </p>
         </div>
       </div>
     </section>
+    <TechnologyTourHost
+      ref="technologyTour"
+      v-model:draft="input"
+      @opened="markTourAsSeen"
+    />
   </main>
 </template>

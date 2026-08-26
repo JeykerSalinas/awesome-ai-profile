@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { isToolUIPart } from 'ai'
-import { marked } from 'marked'
 
 import CandidatePhotoCard from '@/components/chat/CandidatePhotoCard.vue'
 import ToolApprovalCard from '@/components/chat/ToolApprovalCard.vue'
+import AgentActivityPanel from '@/components/chat/AgentActivityPanel.vue'
+import FeatureDiscoveries from '@/components/chat/FeatureDiscoveries.vue'
 import { useLocale } from '@/composables/useLocale'
+import { renderMarkdown } from '@/utils/chatMarkdown'
 import type { ProfileMessage } from '@/types/chat'
 
-defineProps<{ message: ProfileMessage }>()
+const props = defineProps<{
+  message: ProfileMessage
+  hideResources?: boolean
+  active?: boolean
+}>()
 
 const emit = defineEmits<{
   approve: [approvalId: string]
@@ -17,80 +23,46 @@ const emit = defineEmits<{
 
 const { text } = useLocale()
 
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
+const resourceParts = computed(() =>
+  props.message.parts.filter(
+    part => part.type === 'data-source' || part.type === 'data-user-document',
+  ),
+)
 
-const safeLinkProtocols = ['http:', 'https:', 'mailto:']
+const contentParts = computed(() =>
+  props.message.parts.filter(
+    part => part.type !== 'data-source' && part.type !== 'data-user-document'
+      && part.type !== 'data-agent-activity' && part.type !== 'data-feature-used',
+  ),
+)
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
+const shouldShowResources = computed(
+  () => resourceParts.value.length > 0 && !props.hideResources,
+)
 
-function sanitizeUrl(href: string | null | undefined) {
-  if (!href) return null
-
-  try {
-    const url = new URL(href, 'https://example.com')
-    return safeLinkProtocols.includes(url.protocol) ? href : null
-  } catch {
-    return null
-  }
-}
-
-const renderer = new marked.Renderer()
-
-renderer.link = ({ href, title, tokens }) => {
-  const safeHref = sanitizeUrl(href)
-  const content = renderer.parser.parseInline(tokens)
-
-  if (!safeHref) return content
-
-  const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
-  return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noreferrer noopener"${titleAttr}>${content}</a>`
-}
-
-renderer.image = ({ href, text: alt, title }) => {
-  const safeHref = sanitizeUrl(href)
-  if (!safeHref) return ''
-
-  const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
-  return `<img src="${escapeHtml(safeHref)}" alt="${escapeHtml(alt || '')}" loading="lazy"${titleAttr}>`
-}
-
-function renderMarkdown(value: string) {
-  return marked.parse(escapeHtml(value), { async: false, renderer })
-}
+// Recomputed when a photo part arrives, including after streamed text.
+const displayedPhotoSources = computed(() =>
+  props.message.parts.flatMap(part =>
+    part.type === 'data-candidate-photo' ? [part.data.src] : [],
+  ),
+)
+const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.location.href
 </script>
 
 <template>
   <div class="min-w-0 space-y-3">
-    <template v-for="(part, index) in message.parts" :key="`${message.id}-${index}`">
+    <AgentActivityPanel v-if="message.role === 'assistant'" :message="message" :active="!!active" />
+    <template v-for="(part, index) in contentParts" :key="`${props.message.id}-${index}`">
       <div
         v-if="part.type === 'text'"
         class="markdown-content text-[15px] leading-7 text-(--django-copy)"
-        v-html="renderMarkdown(part.text)"
+        v-html="renderMarkdown(part.text, displayedPhotoSources, markdownBaseUrl)"
       />
 
       <CandidatePhotoCard
         v-else-if="part.type === 'data-candidate-photo'"
         :photo="part.data"
       />
-
-      <div
-        v-else-if="part.type === 'data-source'"
-        class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
-      >
-        <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
-        <span class="font-medium">{{ text.verifiedSource }}:</span>
-        <span class="truncate">{{ part.data.path }}</span>
-      </div>
 
       <div
         v-else-if="part.type === 'data-technologies'"
@@ -142,6 +114,38 @@ function renderMarkdown(value: string) {
         @reject="emit('reject', $event)"
       />
     </template>
+
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="translate-y-1 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition-all duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-1 opacity-0"
+    >
+      <div v-if="shouldShowResources" class="flex flex-wrap gap-2 pt-1">
+        <template v-for="(part, index) in resourceParts" :key="`${props.message.id}-resource-${index}`">
+          <div
+            v-if="part.type === 'data-source'"
+            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+          >
+            <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
+            <span class="font-medium">{{ text.verifiedSource }}:</span>
+            <span class="truncate">{{ part.data.path }}</span>
+          </div>
+
+          <div
+            v-else-if="part.type === 'data-user-document'"
+            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+          >
+            <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-primary" />
+            <span class="font-medium">{{ text.uploadedDocument }}:</span>
+            <span class="truncate">{{ part.data.filename }}</span>
+          </div>
+        </template>
+      </div>
+    </Transition>
+    <FeatureDiscoveries :message="message" />
   </div>
 </template>
 

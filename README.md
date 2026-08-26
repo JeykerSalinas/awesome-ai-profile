@@ -23,6 +23,9 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - An approval component prepared for human-in-the-loop tools; an actual approval-required backend tool is still pending.
 - English and Spanish localization with browser-language detection, an English fallback and a persistent language switcher.
 - System-aware light/dark mode with a persistent toggle and Django's brand palette.
+- An optional bilingual **Behind the chat** guided tour: seven animated chapters, UI spotlights and links to the actual implementation.
+- An expandable **Agent activity** panel with observed model/tool executions, statuses, durations and retrieval result counts (not private chain of thought).
+- Contextual EN/ES **Why is this feature so cool?** explanations on first use of eight features; local content with no extra LLM calls.
 - Backend unit tests for request validation, conversation history, stream ordering and provider errors.
 - Azure Static Web Apps deployment through GitHub Actions, plus Docker/Azure Container Apps deployment commands for the backend.
 
@@ -40,6 +43,18 @@ A recruiter should eventually be able to ask:
 The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources and execute the photo tool. Durable cloud storage and recruiter contact workflows remain planned.
 
 ## Current architecture
+
+### Activity and contextual learning
+
+Assistant messages expose real execution events in **Agent activity / Actividad del agente**. The first use of a feature introduces an optional explanation of its value, implementation and limitations. Repeated uses do not repeat the introduction; the original explanation remains available. No raw prompts, tool arguments or document excerpts are exposed by the activity feed, and opening explanations makes no API call. See [the activity implementation guide](docs/agent-activity.md) for the event contract, privacy boundaries, error handling and extension points.
+
+### Explore the engineering story
+
+Select **See how it’s built / Descubre cómo está hecho** on the welcome screen, or the route icon in the header at any time. The optional tour explains the interface, streaming, semantic retrieval, temporary documents, tool calling, localization and Azure delivery. It never starts automatically and does not send messages, upload files or call the model.
+
+Each chapter highlights a relevant part of the interface, shows an explicitly illustrative animated flow, explains the engineering decision and links to its source code. Visitors can go back, jump between chapters, close with Escape or navigate with the arrow keys. The final chapter can prepare a question in the composer without sending it or overwriting a draft.
+
+The implementation uses a lazy-loaded Vue component, native modal dialog semantics and CSS/SVG motion; no tour or animation dependency is required. English/Spanish and light/dark mode follow the existing preferences. Motion can be paused and respects `prefers-reduced-motion`. See [the implementation guide](docs/technology-tour.md) for architecture, extension points and the review checklist.
 
 ```mermaid
 flowchart TD
@@ -145,13 +160,13 @@ AWS remains an alternative for future experimentation, but Azure is the deployme
 
 ## Versioning and releases
 
-This project follows semantic versioning (`MAJOR.MINOR.PATCH`). The first functional chat release is **0.1.0**.
+This project follows semantic versioning (`MAJOR.MINOR.PATCH`). The release prepared by this branch is **0.3.0**, adding the guided technology tour, observable agent activity and contextual feature explanations to 0.2.0.
 
 - `develop` contains completed work that is being prepared for the next release.
 - A pull request from `develop` to `main` promotes that version to production.
 - Merging into `main` triggers the Azure Static Web Apps deployment workflow.
-- After the production deployment succeeds, tag the corresponding `main` commit as `v0.1.0`.
-- Use `0.1.1` for backward-compatible fixes, `0.2.0` for the next feature milestone, and `1.0.0` once the intended recruiter experience is stable.
+- After the production deployment succeeds, tag the corresponding `main` commit as `v0.3.0`.
+- From 0.3.0, use `0.3.1` for backward-compatible fixes, `0.4.0` for the next compatible feature milestone, and `1.0.0` once the intended recruiter experience is stable.
 
 The application version is recorded in `app/package.json` and `app/package-lock.json`. Git tags should point to the production commit, not to an unmerged development branch.
 
@@ -175,6 +190,13 @@ make docker-back-build  # Build the backend Docker image
 make docker-back-run    # Run the backend container locally
 make acr-login          # Authenticate with Azure Container Registry
 make deploy-back        # Build, push and deploy the backend to Azure
+```
+
+Run frontend tests (Markdown, activity, AI SDK data reconciliation and tour) with Node 22.18+ or 24.12+:
+
+```bash
+cd app
+npm test
 ```
 
 Run the existing backend tests with:

@@ -1,20 +1,18 @@
-import { computed, watchEffect } from 'vue'
-import { en, es } from '@nuxt/ui/locale'
-import { useStorage } from '@vueuse/core'
+import { computed, watchEffect } from "vue";
+import { en, es } from "@nuxt/ui/locale";
+import { useStorage } from "@vueuse/core";
 
 const translations = {
   en: {
     documentTitle: "AI-assistant",
     assistantDescription: "Jeyker's professional sidekick",
     availableForWork: "Available for work",
-    portfolioBadge: "Interactive AI portfolio",
     greeting: "Meet Jeyker,",
     greetingHighlight: "through Django.",
     introduction:
       "Ask anything about his engineering experience, AI projects, favorite technologies, or why this résumé has its own canine assistant.",
     suggestions: [
       "Why should we hire Jeyker?",
-      "What has he built with Vue and TypeScript?",
       "Tell me about his AI experience.",
       "Show me a picture of Jeyker.",
     ],
@@ -42,15 +40,13 @@ const translations = {
     documentTitle: "Asistente IA",
     assistantDescription: "El asistente profesional de Jeyker",
     availableForWork: "Disponible para trabajar",
-    portfolioBadge: "Portafolio interactivo con IA",
     greeting: "Conoce a Jeyker,",
     greetingHighlight: "a través de Django.",
     introduction:
       "Pregunta sobre su experiencia como ingeniero, sus proyectos de IA, sus tecnologías favoritas o por qué este currículum tiene su propio asistente canino.",
     suggestions: [
       "¿Por qué deberíamos contratar a Jeyker?",
-      "¿Qué ha construido con Vue y TypeScript?",
-      "Cuéntame sobre su experiencia en inteligencia artificial.",
+      "Cuéntame sobre su experiencia en IA.",
       "Muéstrame una foto de Jeyker.",
     ],
     thinking: "Django está pensando...",
@@ -75,39 +71,41 @@ const translations = {
   },
 } as const;
 
-export type SupportedLocale = keyof typeof translations
+export type SupportedLocale = keyof typeof translations;
 
-export function resolveBrowserLocale(languages: readonly string[]): SupportedLocale {
+export function resolveBrowserLocale(
+  languages: readonly string[]
+): SupportedLocale {
   for (const language of languages) {
-    const code = language.toLowerCase().split('-')[0]
-    if (code === 'es' || code === 'en') return code
+    const code = language.toLowerCase().split("-")[0];
+    if (code === "es" || code === "en") return code;
   }
 
-  return 'en'
+  return "en";
 }
 
 const browserLanguages =
-  typeof navigator === 'undefined'
+  typeof navigator === "undefined"
     ? []
     : navigator.languages.length
-      ? navigator.languages
-      : [navigator.language]
+    ? navigator.languages
+    : [navigator.language];
 
 const locale = useStorage<SupportedLocale>(
-  'django-preferred-language',
-  resolveBrowserLocale(browserLanguages),
-)
+  "django-preferred-language",
+  resolveBrowserLocale(browserLanguages)
+);
 
-if (typeof document !== 'undefined') {
+if (typeof document !== "undefined") {
   watchEffect(() => {
-    document.documentElement.lang = locale.value
-    document.title = translations[locale.value].documentTitle
-  })
+    document.documentElement.lang = locale.value;
+    document.title = translations[locale.value].documentTitle;
+  });
 }
 
 export function useLocale() {
-  const text = computed(() => translations[locale.value])
-  const uiLocale = computed(() => (locale.value === 'es' ? es : en))
+  const text = computed(() => translations[locale.value]);
+  const uiLocale = computed(() => (locale.value === "es" ? es : en));
 
-  return { locale, text, uiLocale }
+  return { locale, text, uiLocale };
 }
