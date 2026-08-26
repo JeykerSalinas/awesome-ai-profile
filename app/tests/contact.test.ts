@@ -3,17 +3,19 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { readUIMessageStream, type UIMessageChunk } from 'ai'
 import { contactChoiceParts, createContactChoiceHandler, createContactController, initialContactState, offersContact, showsContactForm, requestKey, sessionKey, usedKey, validDraft } from '../src/features/contact/flow.ts'
-import { contactCopy } from '../src/features/contact/copy.ts'
+import { contactCopy, contactPresentation } from '../src/features/contact/copy.ts'
 import type { ProfileMessage } from '../src/types/chat.ts'
 
 const draft = { sender_name: 'Ada', reply_email: 'ada@example.com', subject: 'Interview', message: 'Would you like to talk?' }
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status })
-function setup(fetcher: typeof fetch, initial: Record<string, string> = {}) {
+function setup(fetcher: typeof fetch, initial: Record<string, string> = {}, mode: 'simulation' | 'resend' = 'simulation', available = true) {
   const values = new Map(Object.entries(initial))
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value) } }
   const state = initialContactState()
   state.draft = { ...draft }
-  return { ...createContactController(state, storage, fetcher, 'https://api.test'), values, storage }
+  const withConfig: typeof fetch = (url, init) => String(url).endsWith('/config')
+    ? Promise.resolve(json({ mode, available })) : fetcher(url, init)
+  return { ...createContactController(state, storage, withConfig, 'https://api.test'), values, storage }
 }
 const offer: ProfileMessage = { id: 'offer', role: 'assistant', parts: [{ type: 'data-contact-offer', data: { mode: 'demo' } }] }
 
@@ -116,6 +118,7 @@ test('double click submits the exact edited payload once, and locks the session'
     return json({ request_id: posts[0]?.request_id, status: 'simulated', delivered: false })
   })
   flow.state.draft.message = 'My edited message'
+  await flow.load()
   await Promise.all([flow.submit(), flow.submit()])
   await flow.submit()
   assert.equal(posts.length, 1)
@@ -124,7 +127,7 @@ test('double click submits the exact edited payload once, and locks the session'
   assert.equal(posts[0]?.sender_name, 'Ada')
   for (const forbidden of ['to', 'history', 'documents']) assert.equal(forbidden in posts[0]!, false)
   assert.equal(flow.state.used, true)
-  assert.equal(flow.values.get(usedKey), 'true')
+  assert.equal(flow.values.get(usedKey), 'simulated')
   assert.equal(flow.values.get(sessionKey), 'server-token')
   assert.ok(flow.values.get(requestKey))
 })
@@ -151,6 +154,7 @@ test('network failure preserves draft and request id for safe retry', async () =
     if (ids.length === 1) throw new Error('network')
     return json({ status: 'simulated', delivered: false })
   })
+  await flow.load()
   await flow.submit()
   assert.equal(flow.state.error, 'unavailable')
   assert.equal(flow.state.used, false)
@@ -182,6 +186,7 @@ test('invalid form makes no request and blocked storage cannot send', async () =
   assert.equal(calls, 0)
   const state = initialContactState(); state.draft = { ...draft }
   const blocked = createContactController(state, { getItem() { throw Error('blocked') }, setItem() { throw Error('blocked') } }, async () => { calls++; return json({}) }, '')
+  await blocked.load()
   await blocked.submit()
   assert.equal(state.error, 'storage')
   assert.equal(state.used, false)
@@ -221,7 +226,7 @@ test('synchronous blocked storage can recover on a later load', async () => {
   let blocked = true
   const state = initialContactState()
   const flow = createContactController(state, { getItem() { if (blocked) throw Error('blocked'); return null }, setItem() {} },
-    async () => { assert.fail('loading a fresh session must not fetch contact data') }, '')
+    async url => { assert.ok(String(url).endsWith('/config')); return json({ mode: 'simulation', available: true }) }, '')
   await flow.load()
   assert.equal(state.error, 'storage')
   blocked = false
@@ -244,4 +249,105 @@ test('UI is bilingual, editable, explicit about simulation and isolated from Mai
   assert.ok(content.indexOf('<ContactCard') < content.indexOf('</template>\n    <Transition'))
   assert.ok(!card.includes('state.profile'))
   assert.ok(!card.includes('contact-details'))
+})
+
+test('real submission requires loaded configuration and explicit real-mode confirmation', async () => {
+  const posts: Record<string, unknown>[] = []
+  const flow = setup(async (url, init) => {
+    if (String(url).endsWith('/sessions')) return json({ token: 'real-token' })
+    posts.push(JSON.parse(String(init?.body)))
+    return json({ status: 'accepted', delivered: null })
+  }, {}, 'resend')
+  await flow.submit()
+  assert.equal(posts.length, 0)
+  await flow.load()
+  await Promise.all([flow.submit(), flow.submit()])
+  assert.equal(posts.length, 1)
+  assert.equal(posts[0]?.delivery_mode, 'resend')
+  assert.equal(posts[0]?.confirmed, true)
+  assert.equal(posts[0]?.message, draft.message)
+  assert.equal(flow.state.result, 'accepted')
+  assert.equal(flow.values.get(usedKey), 'accepted')
+})
+
+test('disabled real configuration never allocates a session or silently simulates', async () => {
+  const flow = setup(async () => { assert.fail('must not post') }, {}, 'resend', false)
+  await flow.load()
+  await flow.submit()
+  assert.equal(flow.state.used, false)
+  assert.equal(flow.state.error, 'unavailable')
+})
+
+test('ambiguous real send freezes draft and retries with same request ID', async () => {
+  const bodies: string[] = []
+  const flow = setup(async (url, init) => {
+    if (String(url).endsWith('/sessions')) return json({ token: 'token' })
+    bodies.push(String(init?.body))
+    return bodies.length === 1 ? json({ detail: 'contact_delivery_pending' }, 503) : json({ status: 'accepted', delivered: null })
+  }, {}, 'resend')
+  await flow.load(); await flow.submit()
+  assert.equal(flow.state.locked, true)
+  assert.equal(flow.state.used, false)
+  assert.equal(flow.state.error, 'pending')
+  assert.deepEqual(flow.state.draft, draft)
+  await flow.submit()
+  assert.equal(bodies[0], bodies[1])
+  assert.equal(flow.state.used, true)
+})
+
+test('reload recovers accepted versus pending without sending anything', async () => {
+  for (const accepted of [true, false]) {
+    const flow = setup(async url => {
+      assert.ok(String(url).endsWith('/session'))
+      return json({ used: accepted, pending: !accepted,
+        receipt: accepted ? { status: 'accepted', delivered: null } : null })
+    }, { [sessionKey]: 'token' }, 'resend')
+    await flow.load()
+    assert.equal(flow.state.result, accepted ? 'accepted' : null)
+    assert.equal(flow.state.locked, !accepted)
+  }
+})
+
+test('mode changes require a refreshed UI and another explicit confirmation', async () => {
+  const flow = setup(async url => String(url).endsWith('/sessions') ? json({ token: 'token' })
+    : json({ detail: 'contact_mode_changed' }, 409))
+  await flow.load(); await flow.submit()
+  assert.equal(flow.state.ready, false)
+  assert.equal(flow.state.used, false)
+  assert.equal(flow.state.error, 'mode_changed')
+})
+
+test('real UI describes acceptance, not inbox delivery, and identifies Resend processing', () => {
+  for (const locale of ['es', 'en'] as const) {
+    const real = contactPresentation(locale, 'resend')
+    assert.deepEqual(Object.keys(real), Object.keys(contactCopy[locale]))
+    assert.ok(real.consent.includes('Resend'))
+    assert.ok(real.success.includes('Resend'))
+    assert.notEqual(real.send, contactCopy[locale].send)
+  }
+})
+
+test('real-mode errors and malformed receipts never turn into successful simulation', async () => {
+  for (const [status, body, error] of [
+    [409, { detail: 'contact_payload_locked' }, 'locked'],
+    [429, { detail: 'contact_rate_limited' }, 'rate_limited'],
+    [200, { status: 'simulated', delivered: false }, 'unavailable'],
+    [200, { status: 'accepted', delivered: true }, 'unavailable'],
+  ] as const) {
+    const flow = setup(async url => String(url).endsWith('/sessions') ? json({ token: 'token' }) : json(body, status), {}, 'resend')
+    await flow.load(); await flow.submit()
+    assert.equal(flow.state.used, false)
+    assert.equal(flow.state.result, null)
+    assert.equal(flow.state.error, error)
+  }
+})
+
+test('configuration failure cannot silently enable simulation or send', async () => {
+  const state = initialContactState(); state.draft = { ...draft }
+  let calls = 0
+  const flow = createContactController(state, { getItem() { return null }, setItem() {} },
+    async url => { calls++; assert.ok(String(url).endsWith('/config')); throw Error('offline') }, '')
+  await flow.load(); await flow.submit()
+  assert.equal(state.ready, false)
+  assert.equal(calls, 1)
 })

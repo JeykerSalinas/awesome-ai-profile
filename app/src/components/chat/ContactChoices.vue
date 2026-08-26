@@ -17,7 +17,7 @@ const copy = computed(() => contactCopy[locale.value])
       <UButton type="button" icon="i-lucide-square-pen" variant="soft" :disabled="busy || used" @click="emit('choose', 'compose')">{{ copy.compose }}</UButton>
     </div>
     <p v-if="busy" role="status" class="text-xs text-(--django-muted)">{{ copy.choosing }}</p>
-    <p v-if="used" class="text-xs text-(--django-muted)">{{ copy.limit }}</p>
+    <p v-if="used" class="text-xs text-(--django-muted)">{{ copy.usedNotice }}</p>
     <p v-if="error" role="alert" class="text-sm text-(--django-copy)">{{ copy.choiceError }}</p>
   </section>
 </template>

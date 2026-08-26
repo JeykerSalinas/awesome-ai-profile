@@ -3,9 +3,25 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from schemas.contact import ContactReceipt, ContactSessionStatus, ContactSubmission
 from services.contact_service import contact_service
+from services.contact_delivery import public_delivery_config, real_contact_service
+from sqlalchemy.exc import SQLAlchemyError
 
-router = APIRouter(prefix="/contact", tags=["contact demo"])
+router = APIRouter(prefix="/contact", tags=["contact"])
 bearer = HTTPBearer(auto_error=False)
+
+
+def call_service(method, *args):
+    try:
+        service = real_contact_service() if public_delivery_config()["mode"] == "resend" else contact_service
+        return getattr(service, method)(*args)
+    except SQLAlchemyError:
+        raise HTTPException(503, "contact_unavailable") from None
+
+
+@router.get("/config")
+def delivery_config(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return public_delivery_config()
 
 
 def session_token(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> str:
@@ -17,16 +33,16 @@ def session_token(credentials: HTTPAuthorizationCredentials | None = Depends(bea
 @router.post("/sessions")
 def create_session(response: Response):
     response.headers["Cache-Control"] = "no-store"
-    return {"token": contact_service.create_session(), "used": False}
+    return {"token": call_service("create_session"), "used": False}
 
 
 @router.get("/session", response_model=ContactSessionStatus)
 def get_session(response: Response, token: str = Depends(session_token)):
     response.headers["Cache-Control"] = "no-store"
-    return contact_service.status(token)
+    return call_service("status", token)
 
 
 @router.post("/submit", response_model=ContactReceipt)
 def submit_contact(submission: ContactSubmission, response: Response, token: str = Depends(session_token)):
     response.headers["Cache-Control"] = "no-store"
-    return contact_service.submit(token, submission)
+    return call_service("submit", token, submission)

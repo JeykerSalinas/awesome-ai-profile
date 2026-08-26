@@ -14,6 +14,7 @@ class ContactSubmission(BaseModel):
     subject: str = Field(min_length=1, max_length=160)
     message: str = Field(min_length=1, max_length=4000)
     confirmed: StrictBool
+    delivery_mode: Literal["simulation", "resend"] = "simulation"
 
     @field_validator("confirmed")
     @classmethod
@@ -32,20 +33,21 @@ class ContactSubmission(BaseModel):
     @field_validator("reply_email")
     @classmethod
     def email_if_present(cls, value: str) -> str:
-        if value and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+        if value and not re.fullmatch(r"[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+", value):
             raise ValueError("Invalid reply email")
         return value
 
 
 class ContactReceipt(BaseModel):
     request_id: str
-    status: Literal["simulated"] = "simulated"
-    delivered: Literal[False] = False
+    status: Literal["simulated", "accepted"] = "simulated"
+    delivered: Literal[False] | None = False
 
 
 class ContactSessionStatus(BaseModel):
     used: bool
     receipt: ContactReceipt | None = None
+    pending: bool = False
 
 
 class ContactChoice(BaseModel):

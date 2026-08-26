@@ -37,7 +37,7 @@ async def stream_ui_messages(
                     yield encode_sse_event({"type": "text-end", "id": text_id})
                     text_id = None
                 part_name = event["type"].replace("_", "-")
-                yield encode_sse_event({"type": f"data-{part_name}", "id": part_name, "data": {"mode": "demo"}})
+                yield encode_sse_event({"type": f"data-{part_name}", "id": part_name, "data": {"mode": event.get("mode", "demo")}})
                 continue
 
             if event["type"] == "feature":

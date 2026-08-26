@@ -97,7 +97,8 @@ class ContactTests(unittest.TestCase):
     def test_api_flow_validation_and_reload_status(self):
         app = FastAPI()
         app.include_router(router)
-        with patch("routes.contact.contact_service", self.service), TestClient(app) as client:
+        with patch("routes.contact.contact_service", self.service), \
+             patch("routes.contact.public_delivery_config", return_value={"mode":"simulation", "available":True}), TestClient(app) as client:
             self.assertEqual(client.get("/contact/profile").status_code, 404)
             self.assertEqual(client.post("/contact/submit", json=submission().model_dump()).status_code, 401)
             session = client.post("/contact/sessions")

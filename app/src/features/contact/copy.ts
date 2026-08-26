@@ -18,7 +18,14 @@ export const contactCopy = {
     limit: 'Ya utilizaste el único envío simulado de esta sesión. Puedes seguir consultando los datos de contacto.',
     session: 'Un envío simulado por sesión de esta pestaña, también después de recargar.',
     loading: 'Cargando contacto…', retry: 'Reintentar', required: 'Obligatorio',
+    unavailable: 'El envío no está disponible. Puedes consultar los datos de contacto.',
+    locked: 'Hay un intento pendiente. Conservamos el texto para reintentar sin duplicarlo. Espera 30 segundos antes de reintentar. Si recargaste y perdiste el borrador, usa los datos de contacto públicos; no se inicia otro envío.',
+    usedNotice: 'Esta sesión ya utilizó su envío de contacto.',
     errors: {
+      mode_changed: 'Cambió el modo de envío. Actualiza el formulario y revisa el botón antes de confirmar de nuevo.',
+      locked: 'Esta sesión ya tiene otro mensaje reservado. No se puede cambiar el texto ni iniciar otro envío.',
+      pending: 'No se pudo confirmar la aceptación del correo. Espera 30 segundos y reintenta el mismo mensaje; no se enviará una copia nueva.',
+      rate_limited: 'Se alcanzó temporalmente el límite de contacto. Inténtalo más tarde o usa los datos públicos.',
       invalid: 'Completa tu nombre, asunto y mensaje. Si indicas un correo, revisa su formato.',
       unavailable: 'No se pudo confirmar la simulación. Puedes reintentar sin duplicarla.',
       expired: 'La sesión de contacto caducó o el servidor se reinició. No se ha iniciado otra automáticamente.',
@@ -47,7 +54,14 @@ export const contactCopy = {
     limit: 'You have used this session’s single simulated send. You can still view the contact details.',
     session: 'One simulated send per tab session, including after reloading.',
     loading: 'Loading contact…', retry: 'Try again', required: 'Required',
+    unavailable: 'Sending is unavailable. You can view the public contact details.',
+    locked: 'An attempt is pending. We keep the exact text for a safe retry. Wait 30 seconds before retrying. If you reloaded and lost the draft, use the contact details; no new send is started.',
+    usedNotice: 'This session has already used its contact submission.',
     errors: {
+      mode_changed: 'The delivery mode changed. Refresh the form and review the button before confirming again.',
+      locked: 'This session already reserved a different message. The text cannot be changed or sent again.',
+      pending: 'Email acceptance could not be confirmed. Wait 30 seconds and retry the same message; no new copy will be sent.',
+      rate_limited: 'The contact limit has temporarily been reached. Try later or use the public details.',
       invalid: 'Fill in your name, subject and message. Check the email format if you provide one.',
       unavailable: 'The simulation could not be confirmed. You can retry without duplicating it.',
       expired: 'The contact session expired or the server restarted. A new one has not been started automatically.',
@@ -58,3 +72,27 @@ export const contactCopy = {
     explanation: 'The agent decides when to offer contact and waits for your choice. Your decision returns to the conversation: it can answer with public details or embed this editor. You review the message and confirm the simulation. This is a human-decision flow; MCP and real email delivery are not connected yet.',
   },
 } as const
+
+export function contactPresentation(locale: 'es' | 'en', mode: 'simulation' | 'resend') {
+  const copy = contactCopy[locale]
+  if (mode === 'simulation') return copy
+  return { ...copy, ...(locale === 'es' ? {
+    demo: 'Envío real: el mensaje se enviará a Jeyker mediante Resend.',
+    consent: 'Al pulsar «Confirmar y enviar correo», autorizas el envío de tu nombre, correo de respuesta y mensaje a Jeyker mediante Resend. No se incluyen el chat ni los documentos.',
+    send: 'Confirmar y enviar correo', sending: 'Enviando…', retry: 'Consultar estado',
+    success: 'Resend ha aceptado el correo para su envío. La entrega en la bandeja aún no está confirmada.',
+    limit: 'Ya utilizaste el envío de esta sesión. Puedes seguir consultando los datos de contacto.',
+    session: 'Un correo por sesión de esta pestaña, también después de recargar.',
+    explanation: 'El agente ofrece contacto y espera tu elección. Solo tu clic de confirmación envía el formulario mediante Resend. PostgreSQL reserva la sesión y Resend reutiliza la misma clave para evitar correos duplicados en los reintentos. El agente no puede enviar por su cuenta. No hay conexión MCP.',
+  } : {
+    demo: 'Real email: this message will be sent to Jeyker through Resend.',
+    consent: 'By clicking “Confirm and send email”, you authorize sending your name, reply email and message to Jeyker through Resend. The chat and documents are not included.',
+    send: 'Confirm and send email', sending: 'Sending…', retry: 'Check status',
+    success: 'Resend accepted the email for sending. Inbox delivery is not yet confirmed.',
+    limit: 'You have used this session’s email. You can still view the contact details.',
+    session: 'One email per tab session, including after reloading.',
+    explanation: 'The agent offers contact and waits for your choice. Only your confirmation click sends the form through Resend. PostgreSQL reserves the session and Resend reuses the same key to prevent duplicate emails on retries. The agent cannot send on its own. No MCP connection is used.',
+  }), errors: { ...copy.errors, unavailable: locale === 'es'
+    ? 'No se pudo confirmar el envío. Consulta el estado o reintenta el mismo mensaje.'
+    : 'Sending could not be confirmed. Check the status or retry the same message.' } }
+}

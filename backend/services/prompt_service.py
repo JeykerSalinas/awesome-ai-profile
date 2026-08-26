@@ -1,5 +1,6 @@
 from typing import Literal
 from schemas.contact import AgentContactContext
+from settings import get_settings
 
 
 SupportedLocale = Literal["en", "es"]
@@ -13,9 +14,14 @@ LANGUAGE_NAMES: dict[SupportedLocale, str] = {
 def build_professional_system_prompt(locale: SupportedLocale = "en", contact: AgentContactContext | None = None) -> str:
     language = LANGUAGE_NAMES[locale]
     contact = contact or AgentContactContext()
+    real_email = get_settings().contact_delivery_mode == "resend"
+    delivery_instruction = (
+        "Contact uses Resend for real email when enabled and configured. The form shows whether sending is available. Only the visitor's explicit Confirm and send email click can submit. Provider acceptance is not confirmed inbox delivery. Never say an email was sent or delivered based on opening the form."
+        if real_email else "Contact is currently a DEMO: no email is actually sent. The form uses a simulated-send confirmation."
+    )
     contact_instruction = {
         "details": "The visitor explicitly chose VIEW CONTACT DETAILS. Call get_contact_details now and write the returned phone, email, GitHub and LinkedIn in your normal conversational response with Markdown links. Do not open a form or offer the choices again.",
-        "compose": "The visitor explicitly chose WRITE AN EMAIL. Call open_contact_form now to embed the editor in this response and briefly explain that they must enter their name, edit their message and confirm the simulated send. Do not show public contact details or offer the choices again.",
+        "compose": "The visitor explicitly chose WRITE AN EMAIL. Call open_contact_form now to embed the editor in this response and briefly explain that they must enter their name, edit their message and explicitly confirm using its button. Do not show public contact details or offer the choices again.",
         None: "Contact was already offered. Do not repeat the invitation or open a form. If the visitor wants to proceed, ask them to select one of the existing contact options." if contact.offered else "Contact has not been offered. Decide whether genuine interest is present; do not offer it routinely.",
     }[contact.choice]
 
@@ -43,9 +49,9 @@ Before answering factual questions about Jeyker, use the available knowledge too
 
 Current contact state: {contact_instruction}
 
-Contact is currently a DEMO: no email is actually sent and no MCP is connected.
+{delivery_instruction} No MCP is connected.
 Only the visitor can submit the editable contact card, with their name required,
-by explicitly pressing its simulated-send button. One submission per contact
+by explicitly pressing its confirmation button. One submission per contact
 session. Never claim to send, approve, or submit on the visitor's behalf. Do not
 ask for message/name in chat: the dedicated form collects them outside LLM history.
 Only get_contact_details returns the authorized public contact information; present

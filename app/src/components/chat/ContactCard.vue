@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, useId } from 'vue'
 import { useLocale } from '@/composables/useLocale'
-import { contactCopy } from '@/features/contact/copy'
+import { contactPresentation } from '@/features/contact/copy'
 import { validDraft, type createContactController } from '@/features/contact/flow'
 
 const props = defineProps<{ controller: ReturnType<typeof createContactController> }>()
 const { locale } = useLocale()
-const copy = computed(() => contactCopy[locale.value])
 const state = props.controller.state
+const copy = computed(() => contactPresentation(locale.value, state.mode))
+const receiptCopy = computed(() => contactPresentation(locale.value,
+  state.result === 'accepted' ? 'resend' : state.result === 'simulated' ? 'simulation' : state.mode))
+const resultText = computed(() => state.result === null ? copy.value.usedNotice
+  : receiptCopy.value.success)
 const closed = ref(false)
 const id = useId()
 const canSubmit = computed(() => validDraft(state.draft) && !state.used && !state.loading && !state.submitting
+  && state.ready && state.available
   && !['expired', 'storage'].includes(state.error))
 const errorText = computed(() => copy.value.errors[state.error as keyof typeof copy.value.errors] || copy.value.errors.unavailable)
 onMounted(() => { void props.controller.load() })
@@ -27,15 +32,17 @@ onMounted(() => { void props.controller.load() })
     <p v-if="state.loading" role="status" class="text-sm text-(--django-muted)">{{ copy.loading }}</p>
 
     <div v-if="state.used" role="status" class="contact-notice">
-      <p class="font-medium">{{ copy.success }}</p>
-      <p class="mt-1 text-sm">{{ copy.limit }}</p>
+      <p class="font-medium">{{ resultText }}</p>
+      <p class="mt-1 text-sm">{{ receiptCopy.limit }}</p>
     </div>
 
     <UButton v-else-if="closed" type="button" variant="soft" @click="closed = false">{{ copy.reopen }}</UButton>
     <form v-else :id="`${id}-compose`" class="contact-editor" @submit.prevent="controller.submit()">
       <p class="contact-notice text-sm">{{ copy.demo }}</p>
+      <p v-if="state.ready && !state.available" role="alert">{{ copy.unavailable }}</p>
+      <p v-if="state.locked" role="status" class="contact-notice text-sm">{{ copy.locked }}</p>
       <p class="text-sm text-(--django-muted)">{{ copy.to }}: <strong>Jeyker Salinas</strong></p>
-      <fieldset :disabled="state.submitting || state.loading" class="grid min-w-0 gap-4">
+      <fieldset :disabled="state.submitting || state.loading || state.locked" class="grid min-w-0 gap-4">
         <div class="grid gap-4 sm:grid-cols-2">
           <label :for="`${id}-name`">{{ copy.name }} <span class="contact-required">({{ copy.required }})</span>
             <input :id="`${id}-name`" v-model="state.draft.sender_name" name="sender_name" autocomplete="name" required maxlength="100" :placeholder="copy.namePlaceholder" />
@@ -61,7 +68,7 @@ onMounted(() => { void props.controller.load() })
 
     <div v-if="state.error && !state.used" role="alert" class="text-sm text-(--django-copy)">
       <p>{{ errorText }}</p>
-      <UButton v-if="!state.loading && !state.submitting" type="button" variant="link" @click="controller.load()">{{ copy.retry }}</UButton>
+      <UButton v-if="!state.loading && !state.submitting" type="button" variant="link" @click="controller.load(true)">{{ copy.retry }}</UButton>
     </div>
     <details class="text-sm text-(--django-muted)">
       <summary class="cursor-pointer text-primary">{{ copy.why }}</summary>

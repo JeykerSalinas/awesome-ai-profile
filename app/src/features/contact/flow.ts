@@ -15,6 +15,11 @@ export interface ContactState {
   error: string
   choosing: boolean
   choiceError: boolean
+  mode: 'simulation' | 'resend'
+  ready: boolean
+  available: boolean
+  locked: boolean
+  result: 'simulated' | 'accepted' | null
 }
 export const sessionKey = 'django-contact-session-v1'
 export const usedKey = 'django-contact-used-v1'
@@ -22,7 +27,8 @@ export const requestKey = 'django-contact-request-v1'
 
 export function initialContactState(): ContactState {
   return { draft: { sender_name: '', reply_email: '', subject: '', message: '' },
-    loading: false, submitting: false, used: false, error: '', choosing: false, choiceError: false }
+    loading: false, submitting: false, used: false, error: '', choosing: false, choiceError: false,
+    mode: 'simulation', ready: false, available: false, locked: false, result: null }
 }
 
 export function validDraft(draft: ContactDraft): boolean {
@@ -31,7 +37,7 @@ export function validDraft(draft: ContactDraft): boolean {
   return !!name && name.length <= 100 && !!subject && subject.length <= 160
     && !!message && message.length <= 4000 && email.length <= 254
     && !/[\x00-\x1f\x7f]/.test(name + subject + email)
-    && (!email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    && (!email || /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(email))
 }
 
 /** Only a real agent tool marker can offer contact. Never infer it from text/turn count. */
@@ -85,6 +91,10 @@ export function createContactController(state: ContactState, storage: Storage, f
       ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
     })
     if (!response.ok) {
+      const details = await response.json().catch(() => ({}))
+      const codes: Record<string, string> = { contact_mode_changed: 'mode_changed', contact_payload_locked: 'locked',
+        contact_delivery_pending: 'pending', contact_rate_limited: 'rate_limited' }
+      if (codes[details.detail]) throw new Error(codes[details.detail])
       if (response.status === 401) throw new Error('expired')
       if (response.status === 409) throw new Error('used')
       if (response.status === 422) throw new Error('invalid')
@@ -93,33 +103,44 @@ export function createContactController(state: ContactState, storage: Storage, f
     return response.json()
   }
 
-  function markUsed() {
+  function markUsed(result: ContactState['result'] = null) {
     state.used = true
+    state.result = result
     // Server is authoritative; storage protects the visible session across reloads too.
-    try { storage.setItem(usedKey, 'true') } catch { /* Already locked in memory and on server. */ }
+    try { storage.setItem(usedKey, result || 'true') } catch { /* Already locked in memory and on server. */ }
   }
 
   function report(error: unknown) {
-    state.error = error instanceof Error && ['expired', 'used', 'invalid', 'storage'].includes(error.message)
+    state.error = error instanceof Error && ['expired', 'used', 'invalid', 'storage', 'locked', 'pending', 'mode_changed', 'rate_limited'].includes(error.message)
       ? error.message : 'unavailable'
     if (state.error === 'used') markUsed()
   }
 
-  function load(): Promise<void> {
+  function load(refresh = false): Promise<void> {
     if (loading) return loading
-    if (loaded) return Promise.resolve()
+    if (loaded && !refresh) return Promise.resolve()
+    loaded = false
+    state.ready = false
     state.loading = true
     loading = Promise.resolve().then(async () => {
       try {
         try {
           token = storage.getItem(sessionKey) || ''
-          state.used = storage.getItem(usedKey) === 'true'
+          const used = storage.getItem(usedKey)
+          state.used = ['true', 'accepted', 'simulated'].includes(used || '')
+          state.result = used === 'accepted' || used === 'simulated' ? used : null
         } catch { throw new Error('storage') }
+        const config = await request('/config')
+        if (!['simulation', 'resend'].includes(config.mode) || typeof config.available !== 'boolean') throw new Error('unavailable')
+        state.mode = config.mode
+        state.available = config.available
         if (token && !state.used) {
           const result = await request('/session')
-          if (result.used) markUsed()
+          state.locked = !!result.pending
+          if (result.used) markUsed(result.receipt?.status === 'accepted' ? 'accepted' : result.receipt?.status === 'simulated' ? 'simulated' : null)
         }
         loaded = true
+        state.ready = true
         state.error = ''
       } catch (error) { report(error) }
       finally { state.loading = false; loading = undefined }
@@ -129,12 +150,15 @@ export function createContactController(state: ContactState, storage: Storage, f
 
   async function submit() {
     if (state.submitting || state.used) return
+    // Never turn a click on a loading/demo UI into permission for a real email.
+    if (!state.ready || !state.available) { state.error ||= 'unavailable'; return }
     if (!validDraft(state.draft)) { state.error = 'invalid'; return }
     // Capture the exact edited form at the moment of explicit user submission.
     const draft = Object.fromEntries(Object.entries(state.draft).map(([key, value]) => [key, value.trim()]))
+    const deliveryMode = state.mode
     state.submitting = true
+    let attempted = false
     try {
-      await load()
       if (state.used) return
       if (!loaded) return
       if (state.error === 'expired' || state.error === 'storage') return
@@ -151,12 +175,19 @@ export function createContactController(state: ContactState, storage: Storage, f
         requestId = storage.getItem(requestKey) || crypto.randomUUID()
         storage.setItem(requestKey, requestId)
       } catch { throw new Error('storage') }
+      attempted = true
       const result = await request('/submit', {
-        method: 'POST', body: JSON.stringify({ ...draft, request_id: requestId, confirmed: true }),
+        method: 'POST', body: JSON.stringify({ ...draft, request_id: requestId, confirmed: true, delivery_mode: deliveryMode }),
       })
-      if (result.status !== 'simulated' || result.delivered !== false) throw new Error('unavailable')
-      markUsed()
-    } catch (error) { report(error) }
+      if (deliveryMode === 'simulation' ? result.status !== 'simulated' || result.delivered !== false
+        : result.status !== 'accepted' || result.delivered !== null) throw new Error('unavailable')
+      markUsed(result.status)
+    } catch (error) {
+      report(error)
+      // Unknown outcome: retain exact draft; a retry uses the same request ID.
+      if (attempted && deliveryMode === 'resend') state.locked = true
+      if (state.error === 'mode_changed') { state.ready = false; loaded = false }
+    }
     finally { state.submitting = false }
   }
   return { state, load, submit }

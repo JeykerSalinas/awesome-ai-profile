@@ -1,6 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -42,6 +43,13 @@ class Settings(BaseSettings):
     rag_result_limit: int = Field(default=5, validation_alias=AliasChoices("RAG_RESULT_LIMIT"))
     max_pdf_size_mb: int = Field(default=10, validation_alias=AliasChoices("MAX_PDF_SIZE_MB"))
     upload_ttl_minutes: int = Field(default=30, validation_alias=AliasChoices("UPLOAD_TTL_MINUTES"))
+    contact_delivery_mode: Literal["simulation", "resend"] = "simulation"
+    contact_email_enabled: bool = False
+    resend_api_key: SecretStr | None = None
+    contact_from_email: str = ""
+    contact_database_url: SecretStr | None = None
+    contact_daily_limit: int = Field(default=20, ge=1, le=1000)
+    contact_sessions_per_hour: int = Field(default=60, ge=1, le=10000)
 
 
 @lru_cache

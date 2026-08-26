@@ -109,13 +109,13 @@ async def observe_agent_stream(agent: Any, messages: list[dict[str, str]]) -> As
                 if name == "offer_contact":
                     if payload.get("contact_offer") is True and not contact_offered:
                         contact_offered = True
-                        yield {"type": "contact_offer"}
+                        yield {"type": "contact_offer", **({"mode": "email"} if payload.get("delivery") == "resend" else {})}
                     continue
 
                 if name == "open_contact_form":
                     if payload.get("contact_form") is True and not contact_form_opened:
                         contact_form_opened = True
-                        yield {"type": "contact_form"}
+                        yield {"type": "contact_form", **({"mode": "email"} if payload.get("delivery") == "resend" else {})}
                     continue
 
                 if name == "get_contact_details":

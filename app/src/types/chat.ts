@@ -35,8 +35,8 @@ export interface AgentActivityData {
 }
 
 export type ProfileDataParts = {
-  'contact-offer': { mode: 'demo' }
-  'contact-form': { mode: 'demo' }
+  'contact-offer': { mode: 'demo' | 'email' }
+  'contact-form': { mode: 'demo' | 'email' }
   'contact-choice': { choice: 'details' | 'compose'; offer_message_id: string }
   'agent-activity': AgentActivityData
   'feature-used': { feature: 'streaming' }

@@ -40,10 +40,12 @@ class AgentFeatureEvent(TypedDict):
 
 class AgentContactOfferEvent(TypedDict):
     type: Literal["contact_offer"]
+    mode: NotRequired[Literal["demo", "email"]]
 
 
 class AgentContactFormEvent(TypedDict):
     type: Literal["contact_form"]
+    mode: NotRequired[Literal["demo", "email"]]
 
 
 AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent | AgentSourceEvent | AgentActivityEvent | AgentFeatureEvent | AgentContactOfferEvent | AgentContactFormEvent

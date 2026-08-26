@@ -47,6 +47,8 @@ class ContactService:
             return ContactSessionStatus(used=session.receipt is not None, receipt=session.receipt)
 
     def submit(self, token: str, submission: ContactSubmission) -> ContactReceipt:
+        if submission.delivery_mode != "simulation":
+            raise HTTPException(409, "contact_mode_changed")
         digest = sha256(submission.model_dump_json().encode()).hexdigest()
         with self.lock:
             session = self._session(token)
