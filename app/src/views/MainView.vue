@@ -11,8 +11,16 @@ import type { ProfileMessage } from "@/types/chat";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const input = ref("");
 const fileInput = ref<HTMLInputElement | null>(null);
-const uploadedDocuments = ref<Array<{ id: string; filename: string }>>([]);
-const isUploading = ref(false);
+type ComposerDocument = {
+  localId: string;
+  filename: string;
+  status: "uploading" | "ready" | "error";
+  serverId?: string;
+};
+
+const composerDocument = ref<ComposerDocument | null>(null);
+const pendingUpload = ref<Promise<void> | null>(null);
+const requestDocumentIds = ref<string[]>([]);
 const uploadError = ref("");
 const isDark = useDark();
 const { locale, text } = useLocale();
@@ -43,21 +51,65 @@ const {
     api: `${apiBaseUrl}/chat/stream`,
     body: () => ({
       locale: locale.value,
-      documents: uploadedDocuments.value.map((document) => document.id),
+      documents: requestDocumentIds.value,
     }),
   }),
 });
 
 const hasMessages = computed(() => messages.value.length > 0);
+const isUploading = computed(
+  () => composerDocument.value?.status === "uploading",
+);
 
-function submitMessage(event: Event) {
+async function deleteUploadedDocument(documentId: string) {
+  try {
+    await fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // Ignore cleanup errors for temporary uploads.
+  }
+}
+
+async function submitMessage(event: Event) {
   event.preventDefault();
-  const text = input.value.trim();
-  if (!text || status.value === "streaming" || status.value === "submitted")
+  const messageText = input.value.trim();
+  if (
+    !messageText ||
+    status.value === "streaming" ||
+    status.value === "submitted"
+  )
     return;
 
+  if (pendingUpload.value) {
+    await pendingUpload.value;
+  }
+
+  if (composerDocument.value?.status === "error") return;
+
+  const activeDocument = composerDocument.value;
+  requestDocumentIds.value =
+    activeDocument?.status === "ready" && activeDocument.serverId
+      ? [activeDocument.serverId]
+      : [];
+
+  const messageParts: ProfileMessage["parts"] = [{ type: "text", text: messageText }];
+  if (activeDocument?.status === "ready") {
+    messageParts.unshift({
+      type: "data-user-document",
+      data: { filename: activeDocument.filename },
+    });
+  }
+
   input.value = "";
-  void sendMessage({ text });
+  composerDocument.value = null;
+  uploadError.value = "";
+
+  try {
+    await sendMessage({ parts: messageParts });
+  } finally {
+    requestDocumentIds.value = [];
+  }
 }
 
 function sendSuggestion(text: string) {
@@ -74,10 +126,20 @@ async function uploadDocument(event: Event) {
   const file = target.files?.[0];
   if (!file) return;
 
-  isUploading.value = true;
+  const previousDocument = composerDocument.value;
+  if (previousDocument?.status === "ready" && previousDocument.serverId) {
+    void deleteUploadedDocument(previousDocument.serverId);
+  }
+
+  const localId = crypto.randomUUID();
+  composerDocument.value = {
+    localId,
+    filename: file.name,
+    status: "uploading",
+  };
   uploadError.value = "";
 
-  try {
+  const uploadTask = (async () => {
     const payload = new FormData();
     payload.append("file", file);
     payload.append("document_type", "other");
@@ -86,21 +148,54 @@ async function uploadDocument(event: Event) {
       body: payload,
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || text.value.documentUploadError);
-    uploadedDocuments.value.push({ id: result.id, filename: result.filename });
-  } catch (cause) {
-    uploadError.value = cause instanceof Error ? cause.message : text.value.documentUploadError;
-  } finally {
-    isUploading.value = false;
+    if (!response.ok)
+      throw new Error(result.detail || text.value.documentUploadError);
+
+    if (composerDocument.value?.localId !== localId) {
+      await deleteUploadedDocument(result.id);
+      return;
+    }
+
+    composerDocument.value = {
+      localId,
+      filename: result.filename,
+      status: "ready",
+      serverId: result.id,
+    };
+  })().catch(async (cause) => {
+    if (composerDocument.value?.localId === localId) {
+      composerDocument.value = {
+        localId,
+        filename: file.name,
+        status: "error",
+      };
+      uploadError.value =
+        cause instanceof Error ? cause.message : text.value.documentUploadError;
+    }
+  }).finally(() => {
+    if (pendingUpload.value === uploadTask) {
+      pendingUpload.value = null;
+    }
     target.value = "";
-  }
+  });
+
+  pendingUpload.value = uploadTask;
+  await uploadTask;
 }
 
 function removeDocument(documentId: string) {
-  uploadedDocuments.value = uploadedDocuments.value.filter((document) => document.id !== documentId);
-  void fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
-    method: "DELETE",
-  }).catch(() => undefined);
+  if (composerDocument.value?.serverId === documentId) {
+    composerDocument.value = null;
+    uploadError.value = "";
+    void deleteUploadedDocument(documentId);
+  }
+}
+
+function removeComposerDocument() {
+  const documentId = composerDocument.value?.serverId;
+  composerDocument.value = null;
+  uploadError.value = "";
+  if (documentId) void deleteUploadedDocument(documentId);
 }
 </script>
 
@@ -230,6 +325,11 @@ function removeDocument(documentId: string) {
             <template #content="{ message }">
               <ChatMessageContent
                 :message="message as ProfileMessage"
+                :hide-resources="
+                  status === 'streaming' &&
+                  (message as ProfileMessage).role === 'assistant' &&
+                  (message as ProfileMessage).id === messages[messages.length - 1]?.id
+                "
                 @approve="respondToApproval($event, true)"
                 @reject="respondToApproval($event, false)"
               />
@@ -265,22 +365,39 @@ function removeDocument(documentId: string) {
             :description="uploadError"
             class="mb-3"
           />
-          <div v-if="uploadedDocuments.length" class="mb-3 flex flex-wrap gap-2">
+          <div v-if="composerDocument" class="mb-3 flex flex-wrap gap-2">
             <UBadge
-              v-for="document in uploadedDocuments"
-              :key="document.id"
+              :key="composerDocument.localId"
               color="primary"
               variant="subtle"
               class="gap-1.5 rounded-full px-3 py-1.5"
-              :title="text.uploadedDocument"
+              :title="
+                composerDocument.status === 'uploading'
+                  ? text.uploadingDocument
+                  : text.uploadedDocument
+              "
             >
-              <UIcon name="i-lucide-file-text" class="size-3.5" />
-              <span class="max-w-44 truncate">{{ document.filename }}</span>
+              <UIcon
+                :name="
+                  composerDocument.status === 'uploading'
+                    ? 'i-lucide-loader-circle'
+                    : composerDocument.status === 'error'
+                      ? 'i-lucide-file-warning'
+                      : 'i-lucide-file-text'
+                "
+                class="size-3.5"
+                :class="{ 'animate-spin': composerDocument.status === 'uploading' }"
+              />
+              <span class="max-w-44 truncate">{{ composerDocument.filename }}</span>
               <button
                 type="button"
                 :aria-label="text.removeDocument"
                 class="grid size-4 place-items-center rounded-full hover:bg-black/10"
-                @click="removeDocument(document.id)"
+                @click="
+                  composerDocument.serverId
+                    ? removeDocument(composerDocument.serverId)
+                    : removeComposerDocument()
+                "
               >
                 <UIcon name="i-lucide-x" class="size-3" />
               </button>
