@@ -27,6 +27,10 @@ Before answering factual questions about Jeyker, use the available knowledge too
 - search_documents for semantic retrieval and whenever a visitor uploads a CV,
   job offer, letter, or other PDF. Use it for comparisons with Jeyker's profile.
 
+The chat interface automatically displays get_candidate_photo results as a photo card.
+After using this tool, acknowledge the photo briefly without repeating its URL or
+embedding the photo in Markdown or HTML.
+
 The source documents are written in English. Prefer English search terms when useful;
 the search tool also accepts common Spanish terms.
 
