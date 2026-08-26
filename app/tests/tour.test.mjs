@@ -6,8 +6,67 @@ import {
   chapterIndex,
   sourceUrl,
   storyCopy,
+  appendTourQuestion,
 } from '../src/features/tour/story.ts'
 import { placeCard } from '../src/features/tour/placement.ts'
+
+test('preparing a question fills an empty or whitespace-only draft', () => {
+  assert.equal(appendTourQuestion('', 'A question'), 'A question')
+  assert.equal(appendTourQuestion(' \n ', 'A question'), 'A question')
+})
+
+test('preparing a question preserves the complete existing draft', () => {
+  assert.equal(
+    appendTourQuestion('  My draft\n', 'A question'),
+    '  My draft\n\n\nA question',
+  )
+})
+
+test('repeated question preparation appends without replacing prior text', () => {
+  const draft = appendTourQuestion('My draft', 'First question')
+  assert.equal(
+    appendTourQuestion(draft, 'Second question'),
+    'My draft\n\nFirst question\n\nSecond question',
+  )
+})
+
+test('MainView composes tour components without owning presentation or lifecycle', () => {
+  const view = readFileSync(
+    new URL('../src/views/MainView.vue', import.meta.url),
+    'utf8',
+  )
+  assert.ok(
+    view.includes(
+      '<TechnologyTourHost ref="technologyTour" v-model:draft="input"',
+    ),
+  )
+  assert.equal((view.match(/<TechnologyTourLauncher\b/g) ?? []).length, 2)
+  for (const implementationDetail of [
+    'story-invitation',
+    'storyCopy',
+    'defineAsyncComponent',
+    'function openTour',
+    'function prepareTourQuestion',
+    'draftAnnouncement',
+  ]) {
+    assert.ok(!view.includes(implementationDetail), implementationDetail)
+  }
+  const host = readFileSync(
+    new URL('../src/components/tour/TechnologyTourHost.vue', import.meta.url),
+    'utf8',
+  )
+  assert.ok(host.includes('defineExpose({ openTour })'))
+  assert.ok(!host.includes('sendMessage'))
+  const launcher = readFileSync(
+    new URL(
+      '../src/components/tour/TechnologyTourLauncher.vue',
+      import.meta.url,
+    ),
+    'utf8',
+  )
+  assert.ok(launcher.includes('<style scoped>'))
+  assert.ok(launcher.includes('chapters.length'))
+})
 
 test('every chapter has a unique ID, a real UI anchor and an existing source file', () => {
   const view = readFileSync(

@@ -20,13 +20,13 @@ No claim is made that contact workflows, enforced approvals, OCR or automated ba
 
 ## How it works
 
-1. `MainView.vue` owns the open state and exposes a welcome invitation plus an always-available header button. `defineAsyncComponent` loads the dialog implementation on first use. Nothing starts automatically.
+1. `MainView.vue` only composes the tour entry points and binds its chat draft to `TechnologyTourHost.vue`. `TechnologyTourLauncher.vue` owns both entry-point variants (welcome invitation / header icon), their translated labels and all invitation styles. The host owns open/loaded state, lazy loading, announcements and draft preparation, exposing only `openTour()` to the view. `defineAsyncComponent` loads the dialog implementation on first use. Nothing starts automatically.
 2. `features/tour/story.ts` is the typed, bilingual chapter catalog. It contains the narrative, diagram labels, technologies, stable UI target and source path. `storyCopy` contains the controls. The existing `useLocale` preference remains the single language source.
 3. `TechnologyTour.vue` opens a native `<dialog>` with `showModal()`. The browser provides modal focus containment and makes the underlying page inert. Escape and explicit controls close it. Opening remembers focus and scroll positions; closing/unmounting removes listeners and restores them.
 4. Stable `data-tour` attributes identify the UI regions independently of layout classes or translated text. The target's viewport rectangle cuts a hole in a dimmed SVG layer. A border marks the highlighted region. These are geometrical UI effects, not screenshots or copies of the chat.
 5. `placement.ts` prefers space beside, below or above the target. Missing anchors fall back to a centered card. Small screens use a bottom-aligned card with an independently scrollable body and visible navigation. Resize/scroll listeners and `ResizeObserver` keep measurements current, including while chat content changes.
 6. CSS animates chapter entry, spotlight movement and packets across an illustrative three-node diagram. Diagrams are explicitly labeled as illustrations, run for a limited number of cycles, and make no API calls. The pause control and reduced-motion media query disable distracting movement.
-7. The final action emits `prepareQuestion`. The parent appends the proposed text to any existing draft, closes the dialog, focuses the composer and announces the change. Only the visitor's normal send action can call the chat API.
+7. The final action emits `prepareQuestion` to `TechnologyTourHost.vue`. The host appends the proposed text to its draft model, closes the dialog, focuses the composer and announces the change. Its `v-model:draft` binding updates the existing chat input without the view knowing the tour's lifecycle. Only the visitor's normal send action can call the chat API.
 
 The tour does not modify backend behavior, document lifetime, chat history, deployment configuration or stored visitor data. Opening the tour while a response streams does not stop the response. Tour progress is deliberately not persisted; reopening starts a fresh, deterministic walkthrough.
 
@@ -36,7 +36,7 @@ The tour does not modify backend behavior, document lifetime, chat history, depl
 - Choose an existing stable target or add a `data-tour` attribute to a persistent UI region. Include empty-chat and active-chat states when a region is conditional.
 - Link to an existing source file. Links currently target `main`, so they follow the released implementation after merging.
 - Keep implementation claims factual; separate planned functionality from working features.
-- If changing the chapter count, also update the invitation's count, duration/copy and the count assertion in the tests.
+- The invitation count is derived from the catalog. If changing the chapter count, update the duration/copy and the count assertion in the tests.
 
 ## Verification
 
@@ -47,7 +47,7 @@ npm run test:tour
 npm run build
 ```
 
-`test:tour` uses Node's built-in test runner and native TypeScript stripping, supported by the Node versions already required by the application. It checks source/anchor integrity, bilingual completeness, navigation boundaries, source URLs, missing targets, desktop placements and narrow/short viewports. These are unit/content checks, not browser or accessibility certification.
+`test:tour` uses Node's built-in test runner and native TypeScript stripping, supported by the Node versions already required by the application. It checks source/anchor integrity, bilingual completeness, navigation boundaries, source URLs, missing targets, desktop placements, narrow/short viewports, draft preservation and the component separation contract. These are unit/content checks, not browser or accessibility certification.
 
 Manual review checklist:
 

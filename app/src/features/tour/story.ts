@@ -257,3 +257,8 @@ export function sourceUrl(path: string): string {
 export function chapterIndex(index: number): number {
   return Math.max(0, Math.min(chapters.length - 1, Math.trunc(index) || 0))
 }
+
+/** Preparing a tour question must preserve existing text and never send it. */
+export function appendTourQuestion(draft: string, question: string): string {
+  return draft.trim() ? `${draft}\n\n${question}` : question
+}

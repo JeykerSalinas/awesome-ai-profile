@@ -1,42 +1,32 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, ref } from "vue";
+import { computed, ref, useTemplateRef } from "vue";
 import { useChat } from "@ai-sdk/vue";
 import { useDark } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
 
 import ChatMessageContent from "@/components/chat/ChatMessageContent.vue";
+import TechnologyTourHost from "@/components/tour/TechnologyTourHost.vue";
+import TechnologyTourLauncher from "@/components/tour/TechnologyTourLauncher.vue";
 import { useLocale } from "@/composables/useLocale";
 import type { ProfileMessage } from "@/types/chat";
-import { storyCopy } from "@/features/tour/story";
-
-const TechnologyTour = defineAsyncComponent(() => import("@/components/tour/TechnologyTour.vue"));
-const tourOpen = ref(false);
-const tourLoaded = ref(false);
-const draftAnnouncement = ref("");
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const input = ref("");
+const technologyTour = useTemplateRef<InstanceType<typeof TechnologyTourHost>>("technologyTour");
 const fileInput = ref<HTMLInputElement | null>(null);
-const uploadedDocuments = ref<Array<{ id: string; filename: string }>>([]);
-const isUploading = ref(false);
+type ComposerDocument = {
+  localId: string;
+  filename: string;
+  status: "uploading" | "ready" | "error";
+  serverId?: string;
+};
+
+const composerDocument = ref<ComposerDocument | null>(null);
+const pendingUpload = ref<Promise<void> | null>(null);
+const requestDocumentIds = ref<string[]>([]);
 const uploadError = ref("");
 const isDark = useDark();
 const { locale, text } = useLocale();
-const tourText = computed(() => storyCopy[locale.value]);
-
-function openTour() {
-  tourLoaded.value = true;
-  tourOpen.value = true;
-}
-
-async function prepareTourQuestion(question: string) {
-  tourOpen.value = false;
-  // Preserve an existing draft and never send a message on the visitor's behalf.
-  input.value = input.value.trim() ? `${input.value}\n\n${question}` : question;
-  draftAnnouncement.value = tourText.value.draftReady;
-  await nextTick();
-  document.querySelector<HTMLTextAreaElement>('[data-tour="composer"] textarea')?.focus();
-}
 // const messages = ref([{"parts":[{"type":"text","text":"Why should we hire Jeyker?"}],"id":"U3u32FLC4XP4T2T2","role":"user","metadata":"__vue_devtool_undefined__"},{"id":"assistant-aea52d36459942af8fefb122effb93a0","metadata":"__vue_devtool_undefined__","role":"assistant","parts":[{"type":"step-start"},{"type":"data-source","id":"source-b66cf3d921e74cf8b19eb2d03ab0a2dc","data":{"path":"knowledge/profile.json"}},{"type":"text","text":"Jeyker Salinas is a Software Engineer who specializes in building high-quality, product-oriented applications. You should consider him for your team because he brings a unique combination of expertise that bridges modern web development and practical Artificial Intelligence.\n\nHere are the key reasons why Jeyker is a strong candidate:\n\n*   **Frontend Expertise:** He has a deep focus on frontend engineering, specifically using **Vue.js** and **TypeScript** to create scalable and maintainable architectures.\n*   **AI & RAG Integration:** Jeyker is highly proficient in developing conversational interfaces for Large Language Models (LLMs) and implementing **Retrieval-Augmented Generation (RAG)** applications.\n*   **Full-Stack Capability:** He is experienced in backend integration, particularly with **Python and FastAPI**, allowing him to work effectively across the stack.\n*   **Product Mindset:** He is not just focused on writing code; he is committed to delivering software that is user-focused and aligned with product goals.\n\nIf you are looking for an engineer who can translate complex AI capabilities into intuitive, reliable web interfaces, Jeyker would be a valuable addition to your project.","providerMetadata":"__vue_devtool_undefined__","state":"done"}]}])
 const suggestionIcons = [
   "i-lucide-sparkles",
@@ -64,21 +54,65 @@ const {
     api: `${apiBaseUrl}/chat/stream`,
     body: () => ({
       locale: locale.value,
-      documents: uploadedDocuments.value.map((document) => document.id),
+      documents: requestDocumentIds.value,
     }),
   }),
 });
 
 const hasMessages = computed(() => messages.value.length > 0);
+const isUploading = computed(
+  () => composerDocument.value?.status === "uploading",
+);
 
-function submitMessage(event: Event) {
+async function deleteUploadedDocument(documentId: string) {
+  try {
+    await fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // Ignore cleanup errors for temporary uploads.
+  }
+}
+
+async function submitMessage(event: Event) {
   event.preventDefault();
-  const text = input.value.trim();
-  if (!text || status.value === "streaming" || status.value === "submitted")
+  const messageText = input.value.trim();
+  if (
+    !messageText ||
+    status.value === "streaming" ||
+    status.value === "submitted"
+  )
     return;
 
+  if (pendingUpload.value) {
+    await pendingUpload.value;
+  }
+
+  if (composerDocument.value?.status === "error") return;
+
+  const activeDocument = composerDocument.value;
+  requestDocumentIds.value =
+    activeDocument?.status === "ready" && activeDocument.serverId
+      ? [activeDocument.serverId]
+      : [];
+
+  const messageParts: ProfileMessage["parts"] = [{ type: "text", text: messageText }];
+  if (activeDocument?.status === "ready") {
+    messageParts.unshift({
+      type: "data-user-document",
+      data: { filename: activeDocument.filename },
+    });
+  }
+
   input.value = "";
-  void sendMessage({ text });
+  composerDocument.value = null;
+  uploadError.value = "";
+
+  try {
+    await sendMessage({ parts: messageParts });
+  } finally {
+    requestDocumentIds.value = [];
+  }
 }
 
 function sendSuggestion(text: string) {
@@ -95,10 +129,20 @@ async function uploadDocument(event: Event) {
   const file = target.files?.[0];
   if (!file) return;
 
-  isUploading.value = true;
+  const previousDocument = composerDocument.value;
+  if (previousDocument?.status === "ready" && previousDocument.serverId) {
+    void deleteUploadedDocument(previousDocument.serverId);
+  }
+
+  const localId = crypto.randomUUID();
+  composerDocument.value = {
+    localId,
+    filename: file.name,
+    status: "uploading",
+  };
   uploadError.value = "";
 
-  try {
+  const uploadTask = (async () => {
     const payload = new FormData();
     payload.append("file", file);
     payload.append("document_type", "other");
@@ -107,21 +151,54 @@ async function uploadDocument(event: Event) {
       body: payload,
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || text.value.documentUploadError);
-    uploadedDocuments.value.push({ id: result.id, filename: result.filename });
-  } catch (cause) {
-    uploadError.value = cause instanceof Error ? cause.message : text.value.documentUploadError;
-  } finally {
-    isUploading.value = false;
+    if (!response.ok)
+      throw new Error(result.detail || text.value.documentUploadError);
+
+    if (composerDocument.value?.localId !== localId) {
+      await deleteUploadedDocument(result.id);
+      return;
+    }
+
+    composerDocument.value = {
+      localId,
+      filename: result.filename,
+      status: "ready",
+      serverId: result.id,
+    };
+  })().catch(async (cause) => {
+    if (composerDocument.value?.localId === localId) {
+      composerDocument.value = {
+        localId,
+        filename: file.name,
+        status: "error",
+      };
+      uploadError.value =
+        cause instanceof Error ? cause.message : text.value.documentUploadError;
+    }
+  }).finally(() => {
+    if (pendingUpload.value === uploadTask) {
+      pendingUpload.value = null;
+    }
     target.value = "";
-  }
+  });
+
+  pendingUpload.value = uploadTask;
+  await uploadTask;
 }
 
 function removeDocument(documentId: string) {
-  uploadedDocuments.value = uploadedDocuments.value.filter((document) => document.id !== documentId);
-  void fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
-    method: "DELETE",
-  }).catch(() => undefined);
+  if (composerDocument.value?.serverId === documentId) {
+    composerDocument.value = null;
+    uploadError.value = "";
+    void deleteUploadedDocument(documentId);
+  }
+}
+
+function removeComposerDocument() {
+  const documentId = composerDocument.value?.serverId;
+  composerDocument.value = null;
+  uploadError.value = "";
+  if (documentId) void deleteUploadedDocument(documentId);
 }
 </script>
 
@@ -150,7 +227,7 @@ function removeDocument(documentId: string) {
             </p>
           </div>
         </div>
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div data-tour="preferences" class="flex items-center gap-2 sm:gap-3">
           <UBadge
             color="success"
             variant="subtle"
@@ -161,36 +238,26 @@ function removeDocument(documentId: string) {
             />
             {{ text.availableForWork }}
           </UBadge>
+          <TechnologyTourLauncher variant="icon" @open="technologyTour?.openTour()" />
           <UButton
-            icon="i-lucide-route"
-            :aria-label="tourText.launch"
-            :title="tourText.launch"
+            icon="i-lucide-languages"
+            :label="locale.toUpperCase()"
+            :aria-label="text.switchLanguage"
+            :title="text.switchLanguage"
             color="neutral"
             variant="ghost"
             class="rounded-full text-(--django-copy)"
-            @click="openTour"
+            @click="locale = locale === 'es' ? 'en' : 'es'"
           />
-          <div data-tour="preferences" class="flex items-center gap-1">
-            <UButton
-              icon="i-lucide-languages"
-              :label="locale.toUpperCase()"
-              :aria-label="text.switchLanguage"
-              :title="text.switchLanguage"
-              color="neutral"
-              variant="ghost"
-              class="rounded-full text-(--django-copy)"
-              @click="locale = locale === 'es' ? 'en' : 'es'"
-            />
-            <UButton
-              :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
-              :aria-label="isDark ? text.lightMode : text.darkMode"
-              :title="isDark ? text.lightMode : text.darkMode"
-              color="neutral"
-              variant="ghost"
-              class="rounded-full text-(--django-copy)"
-              @click="isDark = !isDark"
-            />
-          </div>
+          <UButton
+            :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
+            :aria-label="isDark ? text.lightMode : text.darkMode"
+            :title="isDark ? text.lightMode : text.darkMode"
+            color="neutral"
+            variant="ghost"
+            class="rounded-full text-(--django-copy)"
+            @click="isDark = !isDark"
+          />
         </div>
       </header>
 
@@ -226,16 +293,7 @@ function removeDocument(documentId: string) {
           >
             {{ text.introduction }}
           </p>
-          <button type="button" class="story-invitation" @click="openTour">
-            <span class="story-invitation-icon" aria-hidden="true"><UIcon name="i-lucide-route" /></span>
-            <span class="story-invitation-copy">
-              <span class="story-invitation-eyebrow">{{ tourText.eyebrow }}<span>01 — 07</span></span>
-              <span class="story-invitation-title">{{ tourText.launch }}</span>
-              <span class="story-invitation-detail">{{ tourText.teaser }}</span>
-              <span class="story-invitation-duration"><UIcon name="i-lucide-clock-3" />{{ tourText.duration }}</span>
-            </span>
-            <UIcon name="i-lucide-arrow-up-right" class="story-invitation-arrow" />
-          </button>
+          <TechnologyTourLauncher @open="technologyTour?.openTour()" />
           <div data-tour="conversation" class="mt-6 grid gap-3 text-left sm:grid-cols-2">
             <button
               v-for="suggestion in suggestions"
@@ -273,6 +331,11 @@ function removeDocument(documentId: string) {
             <template #content="{ message }">
               <ChatMessageContent
                 :message="message as ProfileMessage"
+                :hide-resources="
+                  status === 'streaming' &&
+                  (message as ProfileMessage).role === 'assistant' &&
+                  (message as ProfileMessage).id === messages[messages.length - 1]?.id
+                "
                 @approve="respondToApproval($event, true)"
                 @reject="respondToApproval($event, false)"
               />
@@ -308,22 +371,39 @@ function removeDocument(documentId: string) {
             :description="uploadError"
             class="mb-3"
           />
-          <div v-if="uploadedDocuments.length" class="mb-3 flex flex-wrap gap-2">
+          <div v-if="composerDocument" class="mb-3 flex flex-wrap gap-2">
             <UBadge
-              v-for="document in uploadedDocuments"
-              :key="document.id"
+              :key="composerDocument.localId"
               color="primary"
               variant="subtle"
               class="gap-1.5 rounded-full px-3 py-1.5"
-              :title="text.uploadedDocument"
+              :title="
+                composerDocument.status === 'uploading'
+                  ? text.uploadingDocument
+                  : text.uploadedDocument
+              "
             >
-              <UIcon name="i-lucide-file-text" class="size-3.5" />
-              <span class="max-w-44 truncate">{{ document.filename }}</span>
+              <UIcon
+                :name="
+                  composerDocument.status === 'uploading'
+                    ? 'i-lucide-loader-circle'
+                    : composerDocument.status === 'error'
+                      ? 'i-lucide-file-warning'
+                      : 'i-lucide-file-text'
+                "
+                class="size-3.5"
+                :class="{ 'animate-spin': composerDocument.status === 'uploading' }"
+              />
+              <span class="max-w-44 truncate">{{ composerDocument.filename }}</span>
               <button
                 type="button"
                 :aria-label="text.removeDocument"
                 class="grid size-4 place-items-center rounded-full hover:bg-black/10"
-                @click="removeDocument(document.id)"
+                @click="
+                  composerDocument.serverId
+                    ? removeDocument(composerDocument.serverId)
+                    : removeComposerDocument()
+                "
               >
                 <UIcon name="i-lucide-x" class="size-3" />
               </button>
@@ -374,25 +454,6 @@ function removeDocument(documentId: string) {
         </div>
       </div>
     </section>
-    <p class="sr-only" role="status">{{ draftAnnouncement }}</p>
-    <TechnologyTour v-if="tourLoaded" :open="tourOpen" @close="tourOpen = false" @prepare-question="prepareTourQuestion" />
+    <TechnologyTourHost ref="technologyTour" v-model:draft="input" />
   </main>
 </template>
-
-<style scoped>
-.story-invitation { position: relative; display: flex; align-items: center; gap: 18px; width: 100%; margin-top: 28px; padding: 22px; overflow: hidden; border: 1px solid var(--django-border); border-radius: 14px; background: linear-gradient(120deg, var(--django-surface), var(--django-surface-soft)); text-align: left; cursor: pointer; transition: border-color 200ms, box-shadow 200ms, transform 200ms; }
-.story-invitation:hover { transform: translateY(-2px); border-color: var(--color-django-terracotta); box-shadow: 0 10px 30px rgb(50 8 8 / 10%); }
-.story-invitation:focus-visible { outline: 2px solid var(--color-django-terracotta); outline-offset: 4px; }
-.story-invitation-icon { flex-shrink: 0; display: grid; place-items: center; width: 48px; height: 58px; border: 1px solid var(--django-border); border-radius: 24px 24px 10px 10px; color: var(--django-heading); background: var(--django-surface); }
-.story-invitation-icon > * { width: 23px; height: 23px; }
-.story-invitation-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 7px; }
-.story-invitation-eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 9px; font-weight: 750; letter-spacing: .14em; color: var(--django-muted); }
-.story-invitation-eyebrow > span { font-family: ui-monospace, monospace; font-weight: 400; }
-.story-invitation-title { font-size: 18px; font-weight: 650; letter-spacing: -.025em; color: var(--django-heading); }
-.story-invitation-detail { font-size: 12px; line-height: 1.6; color: var(--django-copy); }
-.story-invitation-duration { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--django-muted); }
-.story-invitation-arrow { width: 22px; height: 22px; flex-shrink: 0; color: var(--django-heading); transition: transform 200ms; }
-.story-invitation:hover .story-invitation-arrow { transform: translate(2px, -2px); }
-@media (max-width: 420px) { .story-invitation { padding: 16px; gap: 12px; } .story-invitation-icon { display: none; } .story-invitation-title { font-size: 16px; } }
-@media (prefers-reduced-motion: reduce) { .story-invitation, .story-invitation-arrow { transition: none; transform: none; } }
-</style>

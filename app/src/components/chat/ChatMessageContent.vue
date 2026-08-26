@@ -8,7 +8,10 @@ import ToolApprovalCard from '@/components/chat/ToolApprovalCard.vue'
 import { useLocale } from '@/composables/useLocale'
 import type { ProfileMessage } from '@/types/chat'
 
-defineProps<{ message: ProfileMessage }>()
+const props = defineProps<{
+  message: ProfileMessage
+  hideResources?: boolean
+}>()
 
 const emit = defineEmits<{
   approve: [approvalId: string]
@@ -16,6 +19,22 @@ const emit = defineEmits<{
 }>()
 
 const { text } = useLocale()
+
+const resourceParts = computed(() =>
+  props.message.parts.filter(
+    part => part.type === 'data-source' || part.type === 'data-user-document',
+  ),
+)
+
+const contentParts = computed(() =>
+  props.message.parts.filter(
+    part => part.type !== 'data-source' && part.type !== 'data-user-document',
+  ),
+)
+
+const shouldShowResources = computed(
+  () => resourceParts.value.length > 0 && !props.hideResources,
+)
 
 marked.setOptions({
   breaks: true,
@@ -71,7 +90,7 @@ function renderMarkdown(value: string) {
 
 <template>
   <div class="min-w-0 space-y-3">
-    <template v-for="(part, index) in message.parts" :key="`${message.id}-${index}`">
+    <template v-for="(part, index) in contentParts" :key="`${props.message.id}-${index}`">
       <div
         v-if="part.type === 'text'"
         class="markdown-content text-[15px] leading-7 text-(--django-copy)"
@@ -82,15 +101,6 @@ function renderMarkdown(value: string) {
         v-else-if="part.type === 'data-candidate-photo'"
         :photo="part.data"
       />
-
-      <div
-        v-else-if="part.type === 'data-source'"
-        class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
-      >
-        <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
-        <span class="font-medium">{{ text.verifiedSource }}:</span>
-        <span class="truncate">{{ part.data.path }}</span>
-      </div>
 
       <div
         v-else-if="part.type === 'data-technologies'"
@@ -142,6 +152,37 @@ function renderMarkdown(value: string) {
         @reject="emit('reject', $event)"
       />
     </template>
+
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="translate-y-1 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition-all duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-1 opacity-0"
+    >
+      <div v-if="shouldShowResources" class="flex flex-wrap gap-2 pt-1">
+        <template v-for="(part, index) in resourceParts" :key="`${props.message.id}-resource-${index}`">
+          <div
+            v-if="part.type === 'data-source'"
+            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+          >
+            <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
+            <span class="font-medium">{{ text.verifiedSource }}:</span>
+            <span class="truncate">{{ part.data.path }}</span>
+          </div>
+
+          <div
+            v-else-if="part.type === 'data-user-document'"
+            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+          >
+            <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-primary" />
+            <span class="font-medium">{{ text.uploadedDocument }}:</span>
+            <span class="truncate">{{ part.data.filename }}</span>
+          </div>
+        </template>
+      </div>
+    </Transition>
   </div>
 </template>
 
