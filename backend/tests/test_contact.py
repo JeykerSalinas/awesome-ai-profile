@@ -183,6 +183,7 @@ class ContactRoutingTests(unittest.TestCase):
         self.assertEqual(details["phone"], "+34 624 179 342")
         self.assertEqual(details["email"], "jeyker.salinas13@gmail.com")
         self.assertEqual(details["github"], "https://github.com/JeykerSalinas")
+        self.assertEqual(details["linkedin"], "https://www.linkedin.com/in/jeyker-salinas-608486158/")
 
     def test_prompt_requires_interest_and_human_selection_not_turn_count(self):
         from services.prompt_service import build_professional_system_prompt
@@ -194,6 +195,8 @@ class ContactRoutingTests(unittest.TestCase):
         for choice, tool in [("details", "get_contact_details"), ("compose", "open_contact_form")]:
             prompt = build_professional_system_prompt("es", AgentContactContext(offered=True, choice=choice))
             self.assertIn(f"Call {tool} now", prompt)
+            if choice == "details":
+                self.assertIn("GitHub and LinkedIn", prompt)
 
 
 class ContactStreamTests(unittest.IsolatedAsyncioTestCase):

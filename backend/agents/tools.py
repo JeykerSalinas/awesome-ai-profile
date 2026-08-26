@@ -16,7 +16,7 @@ def offer_contact() -> str:
 
 @tool
 def get_contact_details() -> str:
-    """Read Jeyker's authorized public phone, email and GitHub after the visitor chooses contact details. Present them in your normal answer with links."""
+    """Read Jeyker's authorized public phone, email, GitHub and LinkedIn after the visitor chooses contact details. Present them in your normal answer with links."""
     return json.dumps(public_contact_details(), ensure_ascii=False)
 
 

@@ -14,7 +14,7 @@ def build_professional_system_prompt(locale: SupportedLocale = "en", contact: Ag
     language = LANGUAGE_NAMES[locale]
     contact = contact or AgentContactContext()
     contact_instruction = {
-        "details": "The visitor explicitly chose VIEW CONTACT DETAILS. Call get_contact_details now and write the returned phone, email and GitHub in your normal conversational response with Markdown links. Do not open a form or offer the choices again.",
+        "details": "The visitor explicitly chose VIEW CONTACT DETAILS. Call get_contact_details now and write the returned phone, email, GitHub and LinkedIn in your normal conversational response with Markdown links. Do not open a form or offer the choices again.",
         "compose": "The visitor explicitly chose WRITE AN EMAIL. Call open_contact_form now to embed the editor in this response and briefly explain that they must enter their name, edit their message and confirm the simulated send. Do not show public contact details or offer the choices again.",
         None: "Contact was already offered. Do not repeat the invitation or open a form. If the visitor wants to proceed, ask them to select one of the existing contact options." if contact.offered else "Contact has not been offered. Decide whether genuine interest is present; do not offer it routinely.",
     }[contact.choice]

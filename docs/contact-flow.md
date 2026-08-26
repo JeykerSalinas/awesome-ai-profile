@@ -4,7 +4,7 @@
 
 The assistant offers two choices inside a chat message:
 
-- **View contact details:** a new user turn asks the agent for the explicitly authorized public phone, email and GitHub link. The agent reads them with `get_contact_details` and writes them in its normal Markdown answer, not a prebuilt contact panel.
+- **View contact details:** a new user turn asks the agent for the explicitly authorized public phone, email, GitHub and LinkedIn links. The agent reads them with `get_contact_details` and writes them in its normal Markdown answer, not a prebuilt contact panel.
 - **Write an email:** a new user turn asks the agent to compose. Its `open_contact_form` tool embeds an editable message card in that assistant response, with a required sender name, subject and message, plus an optional reply email.
 
 There is no first-answer or turn-count invitation. The agent decides whether the conversation shows concrete interest in hiring/interviewing Jeyker or an explicit request to contact him. Greetings, general experience questions, photo requests and polite thanks are not enough. When appropriate, it asks about contact and calls `offer_contact`. Only that tool's marker displays the two buttons, once per conversation, after streaming stops. An ordinary response displays neither the choices nor the form.
@@ -52,7 +52,7 @@ After submission the UI says **Simulation completed. No email has been sent.** T
 
 Submission fields: `request_id`, `sender_name`, `reply_email`, `subject`, `message`, `confirmed`. `confirmed` must be the boolean `true`, not a string or number. Unknown fields—including recipient overrides, attachments and chat history—are rejected. The sending endpoint is not exposed to the LLM as a tool. Session tokens are sent in the Authorization header, not URLs or prompts. Private responses use `Cache-Control: no-store`.
 
-Public contact data is explicit configuration in `backend/services/public_contact.py`, exposed to the model through `get_contact_details`, not a frontend profile endpoint. It is not extracted from uploaded documents or added to the RAG index. It uses the owner's authorized professional phone/email and known GitHub account. The existing knowledge privacy checks remain intact. Markdown supports `tel:`, `mailto:` and HTTPS links; external/manual contact is outside the demo form's quota.
+Public contact data is explicit configuration in `backend/services/public_contact.py`, exposed to the model through `get_contact_details`, not a frontend profile endpoint. It is not extracted from uploaded documents or added to the RAG index. It uses the owner's authorized professional phone/email and known GitHub and LinkedIn accounts. The existing knowledge privacy checks remain intact. Markdown supports `tel:`, `mailto:` and HTTPS links; external/manual contact is outside the demo form's quota.
 
 The human choice metadata is conversational routing, not authenticated consent or a tamper-proof authorization boundary: the client submits the conversation history. It does not authorize email delivery. The separate submit endpoint still validates the exact form, confirmation and session quota. The model decides when to invite and writes the contact answer, so semantic quality still requires live-model evaluation; the UI never infers interest from keywords.
 
@@ -68,7 +68,7 @@ npm test
 npm run build
 ```
 
-Manual acceptance: greet the assistant and ask about general experience (no invitation/form); express interest in an interview (one invitation); choose details (agent-written phone/email/GitHub, no form); choose compose in the original invitation (new assistant response with inline editor); ask an unrelated question (no repeated invitation/form). Type a name/subject/body, edit the text, confirm the simulation, reload and verify that a second submission is unavailable while contact details remain accessible. Also test ES/EN, keyboard, mobile, retry and cancellation. No browser QA or live Gemini call is claimed by the automated suite.
+Manual acceptance: greet the assistant and ask about general experience (no invitation/form); express interest in an interview (one invitation); choose details (agent-written phone/email/GitHub/LinkedIn, no form); choose compose in the original invitation (new assistant response with inline editor); ask an unrelated question (no repeated invitation/form). Type a name/subject/body, edit the text, confirm the simulation, reload and verify that a second submission is unavailable while contact details remain accessible. Also test ES/EN, keyboard, mobile, retry and cancellation. No browser QA or live Gemini call is claimed by the automated suite.
 
 ## Next milestone, not implemented here
 
