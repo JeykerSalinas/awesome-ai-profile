@@ -8,7 +8,8 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build"
+    "type-check": "vue-tsc --build",
+    "test:tour": "node --test tests/tour.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/vue": "^4.0.77",
