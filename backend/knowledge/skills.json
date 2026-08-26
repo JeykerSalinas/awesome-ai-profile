@@ -1,0 +1,62 @@
+{
+  "categories": [
+    {
+      "id": "frontend",
+      "label": "Frontend Development",
+      "items": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "TypeScript",
+        "Vue 2",
+        "Vue 3",
+        "Vue Router",
+        "Vuex",
+        "Vuetify",
+        "Sass",
+        "Nuxt UI",
+        "Tailwind CSS"
+      ]
+    },
+    {
+      "id": "backend",
+      "label": "Backend and APIs",
+      "items": ["Python", "FastAPI", "Django (basic)", "REST APIs"]
+    },
+    {
+      "id": "ai",
+      "label": "Artificial Intelligence and LLM Systems",
+      "items": [
+        "Retrieval-Augmented Generation (RAG)",
+        "Vector databases",
+        "Prompt engineering",
+        "AI agents",
+        "LLM application architecture",
+        "LangChain",
+        "LlamaIndex",
+        "OpenAI API",
+        "Google Gemini",
+        "TensorFlow"
+      ]
+    },
+    {
+      "id": "visualization",
+      "label": "Data Visualization",
+      "items": ["amCharts", "Chart.js", "Operational dashboards"]
+    },
+    {
+      "id": "tooling",
+      "label": "Development and Deployment",
+      "items": ["Git", "GitHub", "GitFlow", "Docker", "Azure Static Web Apps"]
+    },
+    {
+      "id": "testing",
+      "label": "Testing",
+      "items": ["Cypress", "Jest", "Python unittest"]
+    }
+  ],
+  "languages": [
+    {"language": "Spanish", "level": "Native"},
+    {"language": "English", "level": "C1 - Professional working proficiency"}
+  ]
+}

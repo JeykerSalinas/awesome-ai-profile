@@ -13,6 +13,12 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - FastAPI backend that implements the AI SDK UI Message Stream Protocol over **HTTP/SSE**; WebSockets and a Nuxt server are not required.
 - Gemini integration through LangChain, including real agent tool calling.
 - A `get_candidate_photo` tool whose result appears inline as a custom photo card.
+- Curated professional knowledge covering Jeyker's profile, employers, education, skills and projects.
+- `get_profile_section` and `search_experience` tools with English/Spanish keyword retrieval.
+- Answers grounded in verified knowledge files, with source references rendered directly in the chat.
+- Semantic RAG with Gemini embeddings and separate persistent-profile and memory-only visitor stores.
+- Temporary PDF upload and session-scoped retrieval across CVs, job offers, letters and other text-based documents.
+- The selected interface language is sent to the agent, allowing Spanish or English answers from one English-language knowledge base.
 - Extensible typed message parts for photos, technology badges and project cards.
 - An approval component prepared for human-in-the-loop tools; an actual approval-required backend tool is still pending.
 - English and Spanish localization with browser-language detection, an English fallback and a persistent language switcher.
@@ -31,7 +37,7 @@ A recruiter should eventually be able to ask:
 - Can you show his profile photo, relevant projects or supporting sources?
 - Can you send Jeyker a message after obtaining explicit approval?
 
-The current assistant can stream answers and execute the photo tool. A curated knowledge base, grounded retrieval, source citations and recruiter contact workflows are planned; they are not yet implemented.
+The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources and execute the photo tool. Durable cloud storage and recruiter contact workflows remain planned.
 
 ## Current architecture
 
@@ -41,7 +47,15 @@ flowchart TD
     Frontend -->|AI SDK over HTTP/SSE| API[FastAPI chat API]
     API --> Agent[LangChain agent]
     Agent --> Gemini[Google Gemini]
+    Agent --> Knowledge[Curated professional knowledge]
+    Agent --> RAG[Semantic document retrieval]
+    RAG --> ProfileStore[Persistent profile ChromaDB]
+    RAG --> VisitorStore[In-memory visitor ChromaDB]
+    Gemini -->|Embeddings| ProfileStore
+    Gemini -->|Embeddings| VisitorStore
+    Frontend -->|Upload PDF| API
     Agent --> Photo[get_candidate_photo]
+    Knowledge -->|Verified source references| Frontend
     Photo -->|Custom message part| Frontend
     GitHub[GitHub Actions] --> AzureWeb[Azure Static Web Apps]
     Docker[Backend Docker image] --> AzureAPI[Azure Container Apps]
@@ -64,12 +78,62 @@ The project uses Nuxt UI as a Vue component library. It does **not** require Nux
 - Python 3.12+, FastAPI and Pydantic.
 - `POST /chat` for a regular JSON response.
 - `POST /chat/stream` for the AI SDK UI Message Stream Protocol.
+- `POST /documents` for text-based PDF upload, chunking and semantic indexing.
+- `DELETE /documents/{document_id}` to immediately discard an uploaded document's in-memory chunks.
 - `GET /health` for a basic health check.
 - LangChain agent backed by Google Gemini.
+- English-language JSON/Markdown knowledge files loaded by typed profile and experience tools.
+- Bilingual keyword search for professional experience and projects.
+- Gemini embeddings, LangChain recursive chunking and embedded ChromaDB semantic retrieval.
+- Session-scoped access to heterogeneous uploaded documents, including job offers, CVs and letters.
+- Locale-aware system prompts that translate verified facts into English or Spanish.
 - Typed streaming events and custom candidate-photo message parts.
 - Environment-based configuration for the model API key, CORS and deployment settings.
 
 The current agent uses LangChain's `create_agent`. An explicitly modeled LangGraph workflow, provider switching, durable agent state and approval-gated side effects are future improvements rather than current capabilities.
+
+## How document RAG works
+
+The system does not require PDFs to share a common structure. A CV, an informal letter and a job posting are all converted into searchable text; metadata preserves their identity, purpose and source pages.
+
+1. **Ingestion:** `POST /documents` validates a PDF and extracts selectable text from each page with `pypdf`.
+2. **Chunking:** LangChain's `RecursiveCharacterTextSplitter` divides each page into overlapping pieces. Defaults are 900 characters per chunk with a 150-character overlap.
+3. **Embeddings:** Google's `gemini-embedding-001` transforms every chunk into a vector representing its meaning.
+4. **Storage:** Visitor document vectors, text chunks and metadata stay exclusively in an in-memory ChromaDB client; verified profile knowledge uses a separate persistent ChromaDB client.
+5. **Profile seeding:** Existing JSON and Markdown knowledge files are indexed automatically the first time RAG is used. Stable content hashes prevent unchanged documents from being embedded again.
+6. **Retrieval:** When the agent calls `search_documents`, the persistent profile and authorized temporary visitor documents are searched separately, then their most relevant results are combined.
+7. **Generation:** Gemini receives those chunks through the LangChain tool and answers using the evidence. Retrieved filenames are streamed back to the UI as sources.
+
+Every chat sends only its currently attached document IDs. Metadata filters limit the temporary collection to those specific documents, preventing another visitor's uploaded PDF from appearing in the conversation. Uploaded text is treated as untrusted evidence, not as instructions. Temporary documents are deleted immediately when removed from the chat and expire after 30 minutes of inactivity by default.
+
+PDFs must contain selectable text. Image-only or scanned PDFs need OCR, which is not included in this version. Uploads are limited to 10 MB by default.
+
+### Document upload example
+
+```bash
+curl -X POST http://127.0.0.1:8000/documents \
+  -F 'file=@job-offer.pdf;type=application/pdf' \
+  -F 'document_type=job_offer'
+```
+
+Supported document types are `cv`, `job_offer`, `letter` and `other`. The browser currently attaches files as `other`; semantic retrieval does not require a specific document classification.
+
+### Storage, Docker and Azure
+
+ChromaDB runs inside the existing backend process: it does not require PostgreSQL, pgvector, a second container or a separate cloud service. Only the verified professional-profile index is written to `VECTOR_STORE_PATH`, which defaults to `data/chroma`. Visitor PDFs are extracted into RAM, their vectors are stored through `chromadb.EphemeralClient()`, and neither their original PDF nor their indexed chunks are saved to the persistent volume.
+
+For local persistence of the professional profile only, mount a Docker volume:
+
+```bash
+docker run --rm --env-file backend/.env \
+  -e VECTOR_STORE_PATH=/app/data/chroma \
+  -v awesome-ai-profile-chroma:/app/data/chroma \
+  -p 8000:8000 app-backend
+```
+
+Without a persistent volume, the bundled professional-profile index is rebuilt automatically when the backend needs it. Visitor uploads are intentionally never durable: they disappear after `UPLOAD_TTL_MINUTES` of inactivity, when explicitly removed, or when the backend process restarts. Multiple backend replicas would require sticky sessions or a future shared temporary store with automatic expiration.
+
+Embedding calls consume the configured Google API quota. Each unchanged bundled document is indexed once per persistent profile store, while each temporary PDF is indexed when uploaded; searches may embed the query once for the profile and once for the temporary collection. Retrieval reduces generation-token usage because the model receives only selected chunks instead of complete documents.
 
 ### Infrastructure and deployment
 
@@ -133,6 +197,7 @@ awesome-ai-profile/
 │       └── views/               # Recruiter-facing chat
 ├── backend/                     # FastAPI + LangChain + Gemini
 │   ├── agents/                  # Agent and callable tools
+│   ├── knowledge/               # Curated profile, experience, education, skills and projects
 │   ├── routes/                  # Chat API endpoints
 │   ├── schemas/                 # Pydantic request/event models
 │   ├── services/                # Agent and AI SDK SSE adapters
@@ -185,14 +250,17 @@ Checked items correspond to functionality present in the repository; unchecked i
 
 **Goal:** make answers factual, grounded and traceable.
 
-- [ ] Convert Jeyker's CV, projects, education and skills into curated documents.
-- [ ] Implement document ingestion and chunking.
-- [ ] Generate embeddings.
+- [x] Convert Jeyker's CV, projects, education and skills into curated documents.
+- [x] Search verified professional experience using English or Spanish keywords.
+- [x] Implement document ingestion and chunking.
+- [x] Generate embeddings.
+- [x] Add embedded ChromaDB semantic storage and PDF uploads.
 - [ ] Configure PostgreSQL with pgvector.
-- [ ] Implement semantic retrieval.
-- [ ] Build grounded prompts from retrieved context.
-- [ ] Cite supporting sources in the chat interface.
-- [ ] Add retrieval and grounded-answer tests.
+- [x] Implement semantic retrieval.
+- [x] Build grounded prompts around verified knowledge-tool results.
+- [x] Cite supporting knowledge sources in the chat interface.
+- [x] Add bilingual keyword-retrieval and knowledge-integrity tests.
+- [ ] Add end-to-end grounded-answer evaluation tests.
 
 ### Phase 3 — Controlled agent tools
 
@@ -204,8 +272,8 @@ Checked items correspond to functionality present in the repository; unchecked i
 - [x] Prepare an approval UI for human-in-the-loop interactions.
 - [ ] Introduce an explicit LangGraph workflow when orchestration complexity requires it.
 - [ ] Model durable agent state explicitly.
-- [ ] Implement `search_experience`.
-- [ ] Implement `get_profile_section`.
+- [x] Implement `search_experience`.
+- [x] Implement `get_profile_section`.
 - [ ] Implement `create_contact_request`.
 - [ ] Require and enforce approval before side-effecting tools run.
 - [ ] Add tool authorization, rate limits and audit logs.
@@ -289,13 +357,13 @@ Only after the grounded recruiter experience and controlled tools work end to en
 | Capability | Current evidence | Next evidence |
 | --- | --- | --- |
 | Vue / TypeScript | Nuxt UI recruiter chat, typed message parts and responsive UI | Component and end-to-end tests |
-| AI application engineering | AI SDK streaming, Gemini integration and LangChain agent | Grounded retrieval and model evaluations |
-| Tool calling | `get_candidate_photo` and inline custom photo rendering | Recruiter contact and approval-gated tools |
+| AI application engineering | AI SDK streaming, Gemini, LangChain and source-grounded professional answers | Semantic retrieval and model evaluations |
+| Tool calling | Profile search, verified knowledge sections and inline photo rendering | Recruiter contact and approval-gated tools |
 | APIs | FastAPI JSON/SSE endpoints, Pydantic validation and health checks | API integration tests and rate limiting |
 | Testing | Backend unit tests and frontend production type checks | CI test automation, E2E and AI evals |
 | Docker / Azure | Backend Dockerfile, ACR/Container Apps commands and Static Web Apps | Automated backend delivery and monitoring |
 | CI/CD | GitHub Actions frontend deployment from `main` | Full frontend/backend quality gates |
-| RAG / vector search | Local PostgreSQL groundwork only | Curated knowledge, pgvector, embeddings and citations |
+| RAG / vector search | Gemini embeddings, ChromaDB, PDF ingestion, scoped semantic retrieval and source citations | Durable cloud vector storage, retrieval evaluations and optional pgvector migration |
 | Responsible AI | Server-side tool execution and an approval-ready interface | Enforced approvals, authorization and audit logs |
 
 ## Engineering principles

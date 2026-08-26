@@ -86,6 +86,22 @@ class UIMessageStreamTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(events[5]["data"]["src"], "/jeyker.jpg")
 
+    async def test_streams_verified_knowledge_sources(self) -> None:
+        async def remaining_events():
+            yield {"type": "message_delta", "text": "Jeyker has RAG experience."}
+
+        chunks = [
+            chunk
+            async for chunk in stream_ui_messages(
+                {"type": "source", "path": "knowledge/projects/educational-rag-platform.md"},
+                remaining_events(),
+            )
+        ]
+        events = [json.loads(chunk.removeprefix("data: ")) for chunk in chunks[:-1]]
+        source = next(event for event in events if event["type"] == "data-source")
+
+        self.assertEqual(source["data"]["path"], "knowledge/projects/educational-rag-platform.md")
+
     async def test_serializes_provider_errors(self) -> None:
         async def failing_events():
             await asyncio.sleep(0)
