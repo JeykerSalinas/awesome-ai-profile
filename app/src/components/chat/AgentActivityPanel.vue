@@ -18,6 +18,8 @@ const icons = {
 }
 function label(activity: AgentActivityData) {
   if (activity.tool_name === 'offer_contact') return contactCopy[locale.value].title
+  if (activity.tool_name === 'get_contact_details') return contactCopy[locale.value].details
+  if (activity.tool_name === 'open_contact_form') return contactCopy[locale.value].compose
   const feature = activity.tool_name ? toolFeatures[activity.tool_name] : undefined
   return feature ? features[feature][locale.value].title : copy.value.model
 }

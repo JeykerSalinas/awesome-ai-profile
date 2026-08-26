@@ -42,4 +42,8 @@ class AgentContactOfferEvent(TypedDict):
     type: Literal["contact_offer"]
 
 
-AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent | AgentSourceEvent | AgentActivityEvent | AgentFeatureEvent | AgentContactOfferEvent
+class AgentContactFormEvent(TypedDict):
+    type: Literal["contact_form"]
+
+
+AgentStreamEvent = AgentMessageDeltaEvent | AgentImageEvent | AgentSourceEvent | AgentActivityEvent | AgentFeatureEvent | AgentContactOfferEvent | AgentContactFormEvent

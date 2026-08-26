@@ -36,6 +36,8 @@ export interface AgentActivityData {
 
 export type ProfileDataParts = {
   'contact-offer': { mode: 'demo' }
+  'contact-form': { mode: 'demo' }
+  'contact-choice': { choice: 'details' | 'compose'; offer_message_id: string }
   'agent-activity': AgentActivityData
   'feature-used': { feature: 'streaming' }
   'candidate-photo': CandidatePhotoData

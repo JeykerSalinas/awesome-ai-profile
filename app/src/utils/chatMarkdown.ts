@@ -1,6 +1,6 @@
 import { marked } from 'marked'
 
-const safeLinkProtocols = ['http:', 'https:', 'mailto:']
+const safeLinkProtocols = ['http:', 'https:', 'mailto:', 'tel:']
 
 function escapeHtml(value: string) {
   return value

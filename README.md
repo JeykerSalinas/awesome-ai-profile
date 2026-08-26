@@ -47,7 +47,7 @@ The current assistant can stream answers, semantically search curated profession
 
 ### Contact flow (simulation)
 
-The first assistant answer offers public contact details or an editable email card. The `offer_contact` tool can also bring up those choices when the visitor asks to get in touch. Name, subject and body are required; a reply email is optional. The user's simulated-send click confirms the current edited content. FastAPI validates the request and atomically permits one simulation per contact session, including safe retries. A reload does not reset the quota. No email is sent, no MCP is connected and form contents do not enter the LLM history. See [the contact flow guide](docs/contact-flow.md) for the session definition, privacy and deliberate demo limitations.
+The agent decides when to offer contact after concrete hiring/interview interest or an explicit contact request—not on every answer or by turn count. Its `offer_contact` tool displays two choices. The human's selection returns to the conversation: `get_contact_details` lets the agent write public phone/email/GitHub in a normal answer; `open_contact_form` embeds the editor only after choosing to compose. Name, subject and body are required; a reply email is optional. The user's simulated-send click confirms the current edited content. FastAPI validates the request and atomically permits one simulation per contact session, including safe retries. A reload does not reset the quota. No email is sent, no MCP is connected and form contents do not enter the LLM history. See [the contact flow guide](docs/contact-flow.md) for the session definition, privacy and deliberate demo limitations.
 
 ### Activity and contextual learning
 

@@ -9,6 +9,7 @@ from agents.events import ActivityStatus, AgentActivityData, AgentStreamEvent
 PUBLIC_TOOLS = frozenset({
     "get_candidate_photo", "get_profile_section", "search_experience", "search_documents",
     "offer_contact",
+    "get_contact_details", "open_contact_form",
 })
 
 
@@ -44,6 +45,7 @@ async def observe_agent_stream(agent: Any, messages: list[dict[str, str]]) -> As
     emitted_photos: set[str] = set()
     streaming_observed = False
     contact_offered = False
+    contact_form_opened = False
 
     def finish(run_id: str, status: ActivityStatus, result_count: int | None = None) -> AgentStreamEvent:
         activity, started = pending.pop(run_id)
@@ -108,6 +110,17 @@ async def observe_agent_stream(agent: Any, messages: list[dict[str, str]]) -> As
                     if payload.get("contact_offer") is True and not contact_offered:
                         contact_offered = True
                         yield {"type": "contact_offer"}
+                    continue
+
+                if name == "open_contact_form":
+                    if payload.get("contact_form") is True and not contact_form_opened:
+                        contact_form_opened = True
+                        yield {"type": "contact_form"}
+                    continue
+
+                if name == "get_contact_details":
+                    # Facts go back to the LLM, which writes a normal answer.
+                    # No pre-rendered contact card and no raw payload in activity.
                     continue
 
                 if name == "get_candidate_photo":

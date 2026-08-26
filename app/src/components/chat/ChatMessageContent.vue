@@ -7,6 +7,7 @@ import ToolApprovalCard from "@/components/chat/ToolApprovalCard.vue";
 import AgentActivityPanel from "@/components/chat/AgentActivityPanel.vue";
 import FeatureDiscoveries from "@/components/chat/FeatureDiscoveries.vue";
 import ContactCard from "@/components/chat/ContactCard.vue";
+import ContactChoices from "@/components/chat/ContactChoices.vue";
 import { useContactFlow } from "@/composables/useContactFlow";
 import { useLocale } from "@/composables/useLocale";
 import { renderMarkdown } from "@/utils/chatMarkdown";
@@ -24,7 +25,7 @@ const emit = defineEmits<{
 }>();
 
 const { text } = useLocale();
-const contact = useContactFlow(
+const { controller, showOffer, showForm, choose, choiceBusy } = useContactFlow(
   () => props.message,
   () => !!props.active
 );
@@ -42,7 +43,7 @@ const contentParts = computed(() =>
       part.type !== "data-user-document" &&
       part.type !== "data-agent-activity" &&
       part.type !== "data-feature-used" &&
-      part.type !== "data-contact-offer"
+      part.type !== "data-contact-choice"
   )
 );
 
@@ -82,6 +83,16 @@ const markdownBaseUrl =
       <CandidatePhotoCard
         v-else-if="part.type === 'data-candidate-photo'"
         :photo="part.data"
+      />
+
+      <ContactChoices
+        v-else-if="part.type === 'data-contact-offer' && showOffer && controller && choose"
+        :busy="choiceBusy" :used="controller.state.used" :error="controller.state.choiceError"
+        @choose="choose(message.id, $event)"
+      />
+      <ContactCard
+        v-else-if="part.type === 'data-contact-form' && showForm && controller"
+        :controller="controller"
       />
 
       <div
@@ -150,10 +161,6 @@ const markdownBaseUrl =
         @reject="emit('reject', $event)"
       />
     </template>
-    <ContactCard
-      v-if="contact.visible.value && contact.controller"
-      :controller="contact.controller"
-    />
     <Transition
       enter-active-class="transition-all duration-200 ease-out"
       enter-from-class="translate-y-1 opacity-0"

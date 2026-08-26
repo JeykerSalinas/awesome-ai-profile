@@ -16,7 +16,7 @@ Explanations are editorial data shipped with the frontend. Opening them consumes
 
 ## Architecture
 
-1. `backend/agents/agent.py` creates the Gemini/LangChain agent with the four retrieval/photo tools and the harmless `offer_contact` UI tool. It delegates streaming to `agents/activity.py`. Contact offers do not send mail; see [contact flow](contact-flow.md).
+1. `backend/agents/agent.py` creates the Gemini/LangChain agent with the four retrieval/photo tools and contact tools scoped to the current turn: `offer_contact` before an invitation, `get_contact_details` after the details choice, or `open_contact_form` after the compose choice. It delegates streaming to `agents/activity.py`. None of these tools sends mail; see [contact flow](contact-flow.md).
 2. `observe_agent_stream` consumes LangChain `astream_events(..., version="v2")`, filtered to chat model and tool events. Known tool names are allowlisted. Run IDs distinguish repeated or concurrent calls. Time is measured with a monotonic clock. Normal tool outputs still produce the existing photo and source events, with deduplication.
 3. `backend/agents/events.py` defines the public internal event types. The public activity payload contains only `id`, `kind`, `status`, optional `tool_name`, `duration_ms` and `result_count`.
 4. `services/ai_sdk_stream.py` translates activity into `data-agent-activity`. Running and terminal updates share the same data-part ID, allowing AI SDK to update one row. Activity updates do not close an active text block, preserving streamed Markdown. `data-feature-used` marks streaming only after a public text chunk actually arrives.

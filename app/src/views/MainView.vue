@@ -66,7 +66,7 @@ const {
 });
 
 provideFeatureDiscovery(messages);
-provideContactFlow(messages, apiBaseUrl);
+provideContactFlow(messages, apiBaseUrl, status, async (parts) => { await sendMessage({ parts }); });
 const hasMessages = computed(() => messages.value.length > 0);
 const isUploading = computed(
   () => composerDocument.value?.status === "uploading"

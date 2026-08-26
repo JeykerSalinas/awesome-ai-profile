@@ -5,12 +5,25 @@ from langchain.tools import tool
 
 from services.knowledge_service import get_profile_section_data, search_professional_experience
 from services.vector_store_service import get_vector_store_service
+from services.public_contact import public_contact_details
 
 
 @tool
 def offer_contact() -> str:
-    """Offer two contact choices: public contact details or an editable demo email. Does not send anything."""
+    """Offer contact only after genuine hiring/interview interest or an explicit contact request. Wait for the visitor to choose. Does not open a form or send anything."""
     return json.dumps({"contact_offer": True, "delivery": "simulation_only"})
+
+
+@tool
+def get_contact_details() -> str:
+    """Read Jeyker's authorized public phone, email and GitHub after the visitor chooses contact details. Present them in your normal answer with links."""
+    return json.dumps(public_contact_details(), ensure_ascii=False)
+
+
+@tool
+def open_contact_form() -> str:
+    """Embed an editable demo email form in this assistant response after the visitor chooses to write. This does NOT send or approve an email."""
+    return json.dumps({"contact_form": True, "delivery": "simulation_only"})
 
 
 @tool

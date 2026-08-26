@@ -65,6 +65,13 @@ test('raw HTML stays escaped and unsafe image/link protocols stay blocked', () =
   assert.match(html, /&lt;img/)
 })
 
+test('agent-written public contact links support phone, email and GitHub', () => {
+  const html = renderMarkdown('[Phone](tel:+34624179342) [Email](mailto:jeyker.salinas13@gmail.com) [GitHub](https://github.com/JeykerSalinas)')
+  assert.match(html, /href="tel:\+34624179342"/)
+  assert.match(html, /href="mailto:jeyker.salinas13@gmail.com"/)
+  assert.match(html, /href="https:\/\/github.com\/JeykerSalinas"/)
+})
+
 test('malformed card URLs do not break rendering or suppress unrelated images', () => {
   assert.match(renderMarkdown(markdownPhoto, ['http://['], baseUrl), /<img\b/)
 })

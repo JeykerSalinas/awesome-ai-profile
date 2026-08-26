@@ -46,3 +46,14 @@ class ContactReceipt(BaseModel):
 class ContactSessionStatus(BaseModel):
     used: bool
     receipt: ContactReceipt | None = None
+
+
+class ContactChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    choice: Literal["details", "compose"]
+    offer_message_id: str = Field(min_length=1, max_length=200)
+
+
+class AgentContactContext(BaseModel):
+    offered: bool = False
+    choice: Literal["details", "compose"] | None = None

@@ -1,4 +1,5 @@
 import type { ProfileMessage } from '../../types/chat.ts'
+import { contactCopy } from './copy.ts'
 
 export interface ContactDraft {
   sender_name: string
@@ -6,22 +7,22 @@ export interface ContactDraft {
   subject: string
   message: string
 }
-export interface PublicContact { name: string; phone: string; email: string; github: string }
 export interface ContactState {
-  profile: PublicContact | null
   draft: ContactDraft
   loading: boolean
   submitting: boolean
   used: boolean
   error: string
+  choosing: boolean
+  choiceError: boolean
 }
 export const sessionKey = 'django-contact-session-v1'
 export const usedKey = 'django-contact-used-v1'
 export const requestKey = 'django-contact-request-v1'
 
 export function initialContactState(): ContactState {
-  return { profile: null, draft: { sender_name: '', reply_email: '', subject: '', message: '' },
-    loading: false, submitting: false, used: false, error: '' }
+  return { draft: { sender_name: '', reply_email: '', subject: '', message: '' },
+    loading: false, submitting: false, used: false, error: '', choosing: false, choiceError: false }
 }
 
 export function validDraft(draft: ContactDraft): boolean {
@@ -33,13 +34,42 @@ export function validDraft(draft: ContactDraft): boolean {
     && (!email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
 }
 
-/** One automatic invitation; explicit tool calls can reopen the same shared form. */
+/** Only a real agent tool marker can offer contact. Never infer it from text/turn count. */
 export function offersContact(message: ProfileMessage, messages: readonly ProfileMessage[], active: boolean): boolean {
   if (message.role !== 'assistant' || active) return false
-  if (message.parts.some(part => part.type === 'data-contact-offer')) return true
   return messages.find(item => item.role === 'assistant' && item.parts.some(
-    part => part.type === 'text' && part.text.trim(),
+    part => part.type === 'data-contact-offer',
   ))?.id === message.id
+}
+
+export function showsContactForm(message: ProfileMessage, messages: readonly ProfileMessage[], active: boolean): boolean {
+  if (message.role !== 'assistant' || active) return false
+  return [...messages].reverse().find(item => item.role === 'assistant' && item.parts.some(
+    part => part.type === 'data-contact-form',
+  ))?.id === message.id
+}
+
+export type ContactChoice = 'details' | 'compose'
+export function contactChoiceParts(offerId: string, choice: ContactChoice, locale: 'es' | 'en'): ProfileMessage['parts'] {
+  return [
+    { type: 'text', text: contactCopy[locale][choice === 'details' ? 'requestDetails' : 'requestCompose'] },
+    { type: 'data-contact-choice', data: { choice, offer_message_id: offerId } },
+  ]
+}
+
+/** A click resumes the conversation, never opens a local details panel or form. */
+export function createContactChoiceHandler(state: ContactState, messages: () => readonly ProfileMessage[],
+  busy: () => boolean, send: (parts: ProfileMessage['parts']) => Promise<void>, locale: () => 'es' | 'en') {
+  return async (offerId: string, choice: ContactChoice) => {
+    if (busy() || state.choosing || (choice === 'compose' && state.used)) return
+    const offer = messages().find(message => message.id === offerId)
+    if (!offer || !offersContact(offer, messages(), false)) return
+    state.choosing = true
+    state.choiceError = false
+    try { await send(contactChoiceParts(offerId, choice, locale())) }
+    catch { state.choiceError = true }
+    finally { state.choosing = false }
+  }
 }
 
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>
@@ -79,9 +109,8 @@ export function createContactController(state: ContactState, storage: Storage, f
     if (loading) return loading
     if (loaded) return Promise.resolve()
     state.loading = true
-    loading = (async () => {
+    loading = Promise.resolve().then(async () => {
       try {
-        state.profile = await request('/profile')
         try {
           token = storage.getItem(sessionKey) || ''
           state.used = storage.getItem(usedKey) === 'true'
@@ -94,7 +123,7 @@ export function createContactController(state: ContactState, storage: Storage, f
         state.error = ''
       } catch (error) { report(error) }
       finally { state.loading = false; loading = undefined }
-    })()
+    })
     return loading
   }
 

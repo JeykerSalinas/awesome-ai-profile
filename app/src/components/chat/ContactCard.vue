@@ -8,7 +8,7 @@ const props = defineProps<{ controller: ReturnType<typeof createContactControlle
 const { locale } = useLocale()
 const copy = computed(() => contactCopy[locale.value])
 const state = props.controller.state
-const view = ref<'choices' | 'details' | 'compose'>('choices')
+const closed = ref(false)
 const id = useId()
 const canSubmit = computed(() => validDraft(state.draft) && !state.used && !state.loading && !state.submitting
   && !['expired', 'storage'].includes(state.error))
@@ -21,32 +21,18 @@ onMounted(() => { void props.controller.load() })
     <div class="flex items-start gap-3">
       <UIcon name="i-lucide-mail" class="mt-1 size-5 shrink-0 text-primary" />
       <div class="min-w-0">
-        <h3 :id="`${id}-title`" class="font-semibold text-(--django-heading)">{{ copy.title }}</h3>
-        <p class="mt-1 text-sm text-(--django-muted)">{{ copy.intro }}</p>
+        <h3 :id="`${id}-title`" class="font-semibold text-(--django-heading)">{{ copy.editorTitle }}</h3>
       </div>
     </div>
-    <div class="flex flex-wrap gap-2">
-      <UButton type="button" variant="soft" icon="i-lucide-contact" :aria-expanded="view === 'details'"
-        :aria-controls="`${id}-details`" @click="view = view === 'details' ? 'choices' : 'details'">{{ copy.details }}</UButton>
-      <UButton type="button" variant="soft" icon="i-lucide-square-pen" :disabled="state.used || state.submitting"
-        :aria-expanded="view === 'compose'" :aria-controls="`${id}-compose`" @click="view = 'compose'">{{ copy.compose }}</UButton>
-    </div>
-
     <p v-if="state.loading" role="status" class="text-sm text-(--django-muted)">{{ copy.loading }}</p>
-    <div v-if="view === 'details'" :id="`${id}-details`">
-      <dl v-if="state.profile" class="contact-details">
-        <div><dt>{{ copy.phone }}</dt><dd><a :href="`tel:${state.profile.phone.replace(/\s/g, '')}`">{{ state.profile.phone }}</a></dd></div>
-        <div><dt>{{ copy.email }}</dt><dd><a :href="`mailto:${state.profile.email}`">{{ state.profile.email }}</a></dd></div>
-        <div><dt>{{ copy.github }}</dt><dd><a :href="state.profile.github" target="_blank" rel="noopener noreferrer">{{ state.profile.github }}</a></dd></div>
-      </dl>
-    </div>
 
     <div v-if="state.used" role="status" class="contact-notice">
       <p class="font-medium">{{ copy.success }}</p>
       <p class="mt-1 text-sm">{{ copy.limit }}</p>
     </div>
 
-    <form v-else-if="view === 'compose'" :id="`${id}-compose`" class="contact-editor" @submit.prevent="controller.submit()">
+    <UButton v-else-if="closed" type="button" variant="soft" @click="closed = false">{{ copy.reopen }}</UButton>
+    <form v-else :id="`${id}-compose`" class="contact-editor" @submit.prevent="controller.submit()">
       <p class="contact-notice text-sm">{{ copy.demo }}</p>
       <p class="text-sm text-(--django-muted)">{{ copy.to }}: <strong>Jeyker Salinas</strong></p>
       <fieldset :disabled="state.submitting || state.loading" class="grid min-w-0 gap-4">
@@ -68,14 +54,14 @@ onMounted(() => { void props.controller.load() })
       <p :id="`${id}-consent`" class="text-xs leading-5 text-(--django-muted)">{{ copy.consent }}</p>
       <div class="flex flex-wrap gap-2">
         <UButton type="submit" icon="i-lucide-send" :loading="state.submitting" :disabled="!canSubmit">{{ state.submitting ? copy.sending : copy.send }}</UButton>
-        <UButton type="button" color="neutral" variant="ghost" :disabled="state.submitting" @click="view = 'choices'">{{ copy.cancel }}</UButton>
+        <UButton type="button" color="neutral" variant="ghost" :disabled="state.submitting" @click="closed = true">{{ copy.cancel }}</UButton>
       </div>
       <p class="text-xs text-(--django-muted)">{{ copy.session }}</p>
     </form>
 
     <div v-if="state.error && !state.used" role="alert" class="text-sm text-(--django-copy)">
       <p>{{ errorText }}</p>
-      <UButton v-if="!state.profile && !state.loading" type="button" variant="link" @click="controller.load()">{{ copy.retry }}</UButton>
+      <UButton v-if="!state.loading && !state.submitting" type="button" variant="link" @click="controller.load()">{{ copy.retry }}</UButton>
     </div>
     <details class="text-sm text-(--django-muted)">
       <summary class="cursor-pointer text-primary">{{ copy.why }}</summary>
@@ -86,10 +72,6 @@ onMounted(() => { void props.controller.load() })
 
 <style scoped>
 .contact-card { display: grid; gap: 1rem; min-width: 0; padding: 1.25rem; border: 1px solid var(--django-border); border-left: 3px solid var(--ui-primary); border-radius: 5px; background: var(--django-surface-soft); }
-.contact-details { display: grid; gap: .8rem; font-size: .875rem; }
-.contact-details dt { color: var(--django-muted); }
-.contact-details dd { overflow-wrap: anywhere; }
-.contact-details a { color: var(--ui-primary); text-decoration: underline; text-underline-offset: 3px; }
 .contact-editor { display: grid; gap: 1rem; }
 .contact-editor label { display: block; min-width: 0; color: var(--django-heading); font-size: .875rem; }
 .contact-editor input, .contact-editor textarea { display: block; width: 100%; min-width: 0; margin-top: .4rem; padding: .65rem .75rem; border: 1px solid var(--django-border); border-radius: 5px; background: var(--django-surface); color: var(--django-copy); font: inherit; }

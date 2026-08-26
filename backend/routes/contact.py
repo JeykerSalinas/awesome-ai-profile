@@ -14,17 +14,6 @@ def session_token(credentials: HTTPAuthorizationCredentials | None = Depends(bea
     return credentials.credentials
 
 
-@router.get("/profile")
-def public_contact():
-    # Explicitly authorized public contact; not indexed in RAG or inferred by the model.
-    return {
-        "name": "Jeyker Salinas",
-        "phone": "+34 624 179 342",
-        "email": "jeyker.salinas13@gmail.com",
-        "github": "https://github.com/JeykerSalinas",
-    }
-
-
 @router.post("/sessions")
 def create_session(response: Response):
     response.headers["Cache-Control"] = "no-store"
