@@ -35,11 +35,7 @@ test('MainView composes tour components without owning presentation or lifecycle
     new URL('../src/views/MainView.vue', import.meta.url),
     'utf8',
   )
-  assert.ok(
-    view.includes(
-      '<TechnologyTourHost ref="technologyTour" v-model:draft="input"',
-    ),
-  )
+  assert.match(view, /<TechnologyTourHost\s+ref="technologyTour"\s+v-model:draft="input"/)
   assert.equal((view.match(/<TechnologyTourLauncher\b/g) ?? []).length, 2)
   for (const implementationDetail of [
     'story-invitation',
@@ -65,7 +61,9 @@ test('MainView composes tour components without owning presentation or lifecycle
     'utf8',
   )
   assert.ok(launcher.includes('<style scoped>'))
-  assert.ok(launcher.includes('chapters.length'))
+  assert.ok(launcher.includes('storyCopy[locale.value]'))
+  assert.ok(launcher.includes('copy.launch'))
+  assert.ok(launcher.includes("emit('open')"))
 })
 
 test('every chapter has a unique ID, a real UI anchor and an existing source file', () => {
