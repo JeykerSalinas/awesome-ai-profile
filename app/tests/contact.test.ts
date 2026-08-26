@@ -351,3 +351,27 @@ test('configuration failure cannot silently enable simulation or send', async ()
   assert.equal(state.ready, false)
   assert.equal(calls, 1)
 })
+
+test('backend restart rejects the old real-email token without creating or resending', async () => {
+  const urls: string[] = []
+  const flow = setup(async url => {
+    urls.push(String(url))
+    return json({ detail: 'contact_session_expired' }, 401)
+  }, { [sessionKey]: 'lost-after-restart', [requestKey]: 'original-request-id' }, 'resend')
+  await flow.load(); await flow.submit()
+  assert.equal(flow.state.error, 'expired')
+  assert.equal(flow.state.ready, false)
+  assert.equal(flow.state.used, false)
+  assert.deepEqual(urls, ['https://api.test/contact/session'])
+  assert.equal(flow.values.get(sessionKey), 'lost-after-restart')
+  assert.equal(flow.values.get(requestKey), 'original-request-id')
+})
+
+test('email explanations accurately describe process-local memory and restart loss', () => {
+  for (const locale of ['es', 'en'] as const) {
+    const copy = contactPresentation(locale, 'resend')
+    assert.ok(!copy.explanation.includes('PostgreSQL'))
+    assert.ok(copy.explanation.includes(locale === 'es' ? 'memoria' : 'memory'))
+    assert.ok(copy.session.includes(locale === 'es' ? 'reinicia' : 'restarts'))
+  }
+})

@@ -4,18 +4,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from schemas.contact import ContactReceipt, ContactSessionStatus, ContactSubmission
 from services.contact_service import contact_service
 from services.contact_delivery import public_delivery_config, real_contact_service
-from sqlalchemy.exc import SQLAlchemyError
 
 router = APIRouter(prefix="/contact", tags=["contact"])
 bearer = HTTPBearer(auto_error=False)
 
 
 def call_service(method, *args):
-    try:
-        service = real_contact_service() if public_delivery_config()["mode"] == "resend" else contact_service
-        return getattr(service, method)(*args)
-    except SQLAlchemyError:
-        raise HTTPException(503, "contact_unavailable") from None
+    service = real_contact_service() if public_delivery_config()["mode"] == "resend" else contact_service
+    return getattr(service, method)(*args)
 
 
 @router.get("/config")

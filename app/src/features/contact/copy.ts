@@ -28,7 +28,7 @@ export const contactCopy = {
       rate_limited: 'Se alcanzó temporalmente el límite de contacto. Inténtalo más tarde o usa los datos públicos.',
       invalid: 'Completa tu nombre, asunto y mensaje. Si indicas un correo, revisa su formato.',
       unavailable: 'No se pudo confirmar la simulación. Puedes reintentar sin duplicarla.',
-      expired: 'La sesión de contacto caducó o el servidor se reinició. No se ha iniciado otra automáticamente.',
+      expired: 'La sesión caducó o el servidor se reinició. No se inicia otra automáticamente. Si había un envío pendiente, podría haberse aceptado aunque ya no podamos recuperar su estado.',
       used: 'Esta sesión ya tiene una simulación registrada.',
       storage: 'El navegador no permite guardar el estado de esta pestaña. Habilita el almacenamiento de sesión para probar el envío.',
     },
@@ -64,7 +64,7 @@ export const contactCopy = {
       rate_limited: 'The contact limit has temporarily been reached. Try later or use the public details.',
       invalid: 'Fill in your name, subject and message. Check the email format if you provide one.',
       unavailable: 'The simulation could not be confirmed. You can retry without duplicating it.',
-      expired: 'The contact session expired or the server restarted. A new one has not been started automatically.',
+      expired: 'The session expired or the server restarted. No new session is started automatically. A pending email may have been accepted even though its status can no longer be recovered.',
       used: 'This session already has a recorded simulation.',
       storage: 'Your browser cannot store this tab’s state. Enable session storage to try the simulated send.',
     },
@@ -82,16 +82,16 @@ export function contactPresentation(locale: 'es' | 'en', mode: 'simulation' | 'r
     send: 'Confirmar y enviar correo', sending: 'Enviando…', retry: 'Consultar estado',
     success: 'Resend ha aceptado el correo para su envío. La entrega en la bandeja aún no está confirmada.',
     limit: 'Ya utilizaste el envío de esta sesión. Puedes seguir consultando los datos de contacto.',
-    session: 'Un correo por sesión de esta pestaña, también después de recargar.',
-    explanation: 'El agente ofrece contacto y espera tu elección. Solo tu clic de confirmación envía el formulario mediante Resend. PostgreSQL reserva la sesión y Resend reutiliza la misma clave para evitar correos duplicados en los reintentos. El agente no puede enviar por su cuenta. No hay conexión MCP.',
+    session: 'Un correo por sesión de esta pestaña. Las sesiones se pierden si el backend se reinicia.',
+    explanation: 'El agente ofrece contacto y espera tu elección. Solo tu clic de confirmación envía el formulario mediante Resend. El backend reserva la sesión en memoria y Resend reutiliza la misma clave para evitar duplicados en los reintentos. Un reinicio pierde sesiones y contadores; esta demo usa un único proceso y réplica. El almacenamiento está separado para añadir una base de datos después. El agente no puede enviar por su cuenta. No hay conexión MCP.',
   } : {
     demo: 'Real email: this message will be sent to Jeyker through Resend.',
     consent: 'By clicking “Confirm and send email”, you authorize sending your name, reply email and message to Jeyker through Resend. The chat and documents are not included.',
     send: 'Confirm and send email', sending: 'Sending…', retry: 'Check status',
     success: 'Resend accepted the email for sending. Inbox delivery is not yet confirmed.',
     limit: 'You have used this session’s email. You can still view the contact details.',
-    session: 'One email per tab session, including after reloading.',
-    explanation: 'The agent offers contact and waits for your choice. Only your confirmation click sends the form through Resend. PostgreSQL reserves the session and Resend reuses the same key to prevent duplicate emails on retries. The agent cannot send on its own. No MCP connection is used.',
+    session: 'One email per tab session. Sessions are lost if the backend restarts.',
+    explanation: 'The agent offers contact and waits for your choice. Only your confirmation click sends the form through Resend. The backend reserves the session in memory and Resend reuses the same key to prevent duplicate retries. A restart loses sessions and counters; this demo uses one process and replica. Storage is separate so a database can be added later. The agent cannot send on its own. No MCP connection is used.',
   }), errors: { ...copy.errors, unavailable: locale === 'es'
     ? 'No se pudo confirmar el envío. Consulta el estado o reintenta el mismo mensaje.'
     : 'Sending could not be confirmed. Check the status or retry the same message.' } }

@@ -47,9 +47,11 @@ class Settings(BaseSettings):
     contact_email_enabled: bool = False
     resend_api_key: SecretStr | None = None
     contact_from_email: str = ""
-    contact_database_url: SecretStr | None = None
+    # Accepted only for compatibility with earlier .env files; ignored by contact.
+    contact_database_url: SecretStr | None = Field(default=None, exclude=True, repr=False)
     contact_daily_limit: int = Field(default=20, ge=1, le=1000)
     contact_sessions_per_hour: int = Field(default=60, ge=1, le=10000)
+    contact_max_sessions: int = Field(default=10000, ge=1, le=100000)
 
 
 @lru_cache

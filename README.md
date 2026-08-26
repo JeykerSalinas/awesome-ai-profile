@@ -21,7 +21,7 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - The selected interface language is sent to the agent, allowing Spanish or English answers from one English-language knowledge base.
 - Extensible typed message parts for photos, technology badges and project cards.
 - An approval component prepared for human-in-the-loop tools; an actual approval-required backend tool is still pending.
-- Agent-led contact choices: public phone/email/GitHub/LinkedIn or an editable email card with required sender name and explicit confirmation. Optional **Resend delivery with PostgreSQL reservations, idempotent retries and shared quotas**; simulation remains the safe default. No MCP connection yet.
+- Agent-led contact choices: public phone/email/GitHub/LinkedIn or an editable email card with required sender name and explicit confirmation. Optional **Resend delivery with bounded in-memory reservations, idempotent retries and per-process quotas**; simulation remains the safe default. No MCP connection yet.
 - English and Spanish localization with browser-language detection, an English fallback and a persistent language switcher.
 - System-aware light/dark mode with a persistent toggle and Django's brand palette.
 - An optional bilingual **Behind the chat** guided tour: seven animated chapters, UI spotlights and links to the actual implementation.
@@ -41,13 +41,13 @@ A recruiter should eventually be able to ask:
 - Can you show his profile photo, relevant projects or supporting sources?
 - Can you send Jeyker a message after obtaining explicit approval?
 
-The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources, execute the photo tool and offer a contact flow. The editable contact card supports opt-in Resend delivery through a server-only confirmation gate and persistent PostgreSQL reservations. Activation requires credentials, a sender and database setup; simulation is the default.
+The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources, execute the photo tool and offer a contact flow. The editable contact card supports opt-in Resend delivery through a server-only confirmation gate and in-memory reservations. Activation requires credentials and a sender, not a database; simulation is the default. Use one backend process/replica: restarts lose sessions, receipts and counters.
 
 ## Current architecture
 
 ### Contact flow (simulation or Resend)
 
-The agent decides when to offer contact after concrete hiring/interview interest or an explicit contact request—not on every answer or by turn count. Its `offer_contact` tool displays two choices. The human's selection returns to the conversation: `get_contact_details` lets the agent write public phone/email/GitHub/LinkedIn in a normal answer; `open_contact_form` embeds the editor only after choosing to compose. Name, subject and body are required; a reply email is optional. Only the visitor's mode-specific confirmation button can submit. Real mode uses a fixed recipient, PostgreSQL reservations, Resend idempotency keys and shared budget limits. Acceptance by Resend is not confirmed inbox delivery. Form contents stay out of LLM history. See [configuration, Azure setup and verification](docs/contact-flow.md) before enabling real sends. No MCP is connected and no external email is sent by default.
+The agent decides when to offer contact after concrete hiring/interview interest or an explicit contact request—not on every answer or by turn count. Its `offer_contact` tool displays two choices. The human's selection returns to the conversation: `get_contact_details` lets the agent write public phone/email/GitHub/LinkedIn in a normal answer; `open_contact_form` embeds the editor only after choosing to compose. Name, subject and body are required; a reply email is optional. Only the visitor's mode-specific confirmation button can submit. Real mode uses a fixed recipient, in-memory reservations, Resend idempotency keys and per-process budget limits. A backend restart invalidates old sessions without automatically recreating them or resending; there is no durable receipt recovery. Acceptance by Resend is not confirmed inbox delivery. Form contents stay out of LLM history. See [configuration, Azure setup and verification](docs/contact-flow.md) before enabling real sends. No MCP is connected and no external email is sent by default.
 
 ### Activity and contextual learning
 
@@ -303,8 +303,8 @@ Checked items correspond to functionality present in the repository; unchecked i
 - [x] Implement `get_profile_section`.
 - [ ] Implement `create_contact_request`.
 - [x] Add public contact choices and an editable, explicitly confirmed contact simulation with required sender name and a one-per-session limit.
-- [x] Implement opt-in Resend delivery, persistent reservations, safe retries and global contact caps.
-- [ ] Configure and verify live Resend/PostgreSQL delivery in the deployed environment.
+- [x] Implement opt-in Resend delivery, replaceable in-memory storage, safe retries and per-process contact caps.
+- [ ] Configure and verify live Resend delivery in the single-process/replica deployment.
 - [ ] Require and enforce approval before side-effecting tools run.
 - [ ] Add tool authorization, rate limits and audit logs.
 - [ ] Test invalid, malicious and denied tool requests.
@@ -389,7 +389,7 @@ Only after the grounded recruiter experience and controlled tools work end to en
 | Vue / TypeScript | Nuxt UI recruiter chat, typed message parts and responsive UI | Component and end-to-end tests |
 | AI application engineering | AI SDK streaming, Gemini, LangChain and source-grounded professional answers | Semantic retrieval and model evaluations |
 | Tool calling | Profile search, verified sections, inline photos and agent-led contact choices | General-purpose approval-gated tools |
-| APIs | FastAPI JSON/SSE, validated forms, opt-in Resend delivery and shared contact quotas | Live provider/PostgreSQL verification and infrastructure rate limits |
+| APIs | FastAPI JSON/SSE, validated forms, opt-in Resend delivery and in-memory contact quotas | Live provider verification, a future durable storage adapter and infrastructure rate limits |
 | Testing | Backend unit tests and frontend production type checks | CI test automation, E2E and AI evals |
 | Docker / Azure | Backend Dockerfile, ACR/Container Apps commands and Static Web Apps | Automated backend delivery and monitoring |
 | CI/CD | GitHub Actions frontend deployment from `main` | Full frontend/backend quality gates |
