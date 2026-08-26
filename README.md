@@ -160,13 +160,13 @@ AWS remains an alternative for future experimentation, but Azure is the deployme
 
 ## Versioning and releases
 
-This project follows semantic versioning (`MAJOR.MINOR.PATCH`). The first functional chat release is **0.1.0**.
+This project follows semantic versioning (`MAJOR.MINOR.PATCH`). The release prepared by this branch is **0.3.0**, adding the guided technology tour, observable agent activity and contextual feature explanations to 0.2.0.
 
 - `develop` contains completed work that is being prepared for the next release.
 - A pull request from `develop` to `main` promotes that version to production.
 - Merging into `main` triggers the Azure Static Web Apps deployment workflow.
-- After the production deployment succeeds, tag the corresponding `main` commit as `v0.1.0`.
-- Use `0.1.1` for backward-compatible fixes, `0.2.0` for the next feature milestone, and `1.0.0` once the intended recruiter experience is stable.
+- After the production deployment succeeds, tag the corresponding `main` commit as `v0.3.0`.
+- From 0.3.0, use `0.3.1` for backward-compatible fixes, `0.4.0` for the next compatible feature milestone, and `1.0.0` once the intended recruiter experience is stable.
 
 The application version is recorded in `app/package.json` and `app/package-lock.json`. Git tags should point to the production commit, not to an unmerged development branch.
 
