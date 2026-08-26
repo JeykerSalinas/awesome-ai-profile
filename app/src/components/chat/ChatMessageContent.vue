@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { isToolUIPart } from 'ai'
-import { marked } from 'marked'
 
 import CandidatePhotoCard from '@/components/chat/CandidatePhotoCard.vue'
 import ToolApprovalCard from '@/components/chat/ToolApprovalCard.vue'
+import AgentActivityPanel from '@/components/chat/AgentActivityPanel.vue'
+import FeatureDiscoveries from '@/components/chat/FeatureDiscoveries.vue'
 import { useLocale } from '@/composables/useLocale'
+import { renderMarkdown } from '@/utils/chatMarkdown'
 import type { ProfileMessage } from '@/types/chat'
 
 const props = defineProps<{
   message: ProfileMessage
   hideResources?: boolean
+  active?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -28,7 +31,8 @@ const resourceParts = computed(() =>
 
 const contentParts = computed(() =>
   props.message.parts.filter(
-    part => part.type !== 'data-source' && part.type !== 'data-user-document',
+    part => part.type !== 'data-source' && part.type !== 'data-user-document'
+      && part.type !== 'data-agent-activity' && part.type !== 'data-feature-used',
   ),
 )
 
@@ -36,65 +40,23 @@ const shouldShowResources = computed(
   () => resourceParts.value.length > 0 && !props.hideResources,
 )
 
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
-
-const safeLinkProtocols = ['http:', 'https:', 'mailto:']
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
-
-function sanitizeUrl(href: string | null | undefined) {
-  if (!href) return null
-
-  try {
-    const url = new URL(href, 'https://example.com')
-    return safeLinkProtocols.includes(url.protocol) ? href : null
-  } catch {
-    return null
-  }
-}
-
-const renderer = new marked.Renderer()
-
-renderer.link = ({ href, title, tokens }) => {
-  const safeHref = sanitizeUrl(href)
-  const content = renderer.parser.parseInline(tokens)
-
-  if (!safeHref) return content
-
-  const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
-  return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noreferrer noopener"${titleAttr}>${content}</a>`
-}
-
-renderer.image = ({ href, text: alt, title }) => {
-  const safeHref = sanitizeUrl(href)
-  if (!safeHref) return ''
-
-  const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
-  return `<img src="${escapeHtml(safeHref)}" alt="${escapeHtml(alt || '')}" loading="lazy"${titleAttr}>`
-}
-
-function renderMarkdown(value: string) {
-  return marked.parse(escapeHtml(value), { async: false, renderer })
-}
+// Recomputed when a photo part arrives, including after streamed text.
+const displayedPhotoSources = computed(() =>
+  props.message.parts.flatMap(part =>
+    part.type === 'data-candidate-photo' ? [part.data.src] : [],
+  ),
+)
+const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.location.href
 </script>
 
 <template>
   <div class="min-w-0 space-y-3">
+    <AgentActivityPanel v-if="message.role === 'assistant'" :message="message" :active="!!active" />
     <template v-for="(part, index) in contentParts" :key="`${props.message.id}-${index}`">
       <div
         v-if="part.type === 'text'"
         class="markdown-content text-[15px] leading-7 text-(--django-copy)"
-        v-html="renderMarkdown(part.text)"
+        v-html="renderMarkdown(part.text, displayedPhotoSources, markdownBaseUrl)"
       />
 
       <CandidatePhotoCard
@@ -183,6 +145,7 @@ function renderMarkdown(value: string) {
         </template>
       </div>
     </Transition>
+    <FeatureDiscoveries :message="message" />
   </div>
 </template>
 

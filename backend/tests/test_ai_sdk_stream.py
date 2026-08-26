@@ -111,8 +111,32 @@ class UIMessageStreamTests(unittest.IsolatedAsyncioTestCase):
         chunks = [chunk async for chunk in stream_ui_messages(None, failing_events())]
         events = [json.loads(chunk.removeprefix("data: ")) for chunk in chunks[:-1]]
 
-        self.assertEqual(events[-1], {"type": "error", "errorText": "Provider unavailable"})
+        self.assertEqual(events[-1], {"type": "error", "errorText": "The response could not be completed. Please try again."})
         self.assertEqual(chunks[-1], "data: [DONE]\n\n")
+
+    async def test_activity_updates_reuse_id_without_splitting_markdown(self) -> None:
+        async def remaining_events():
+            yield {"type": "activity", "data": {"id": "run-1", "kind": "tool", "tool_name": "search_documents", "status": "running"}}
+            yield {"type": "activity", "data": {"id": "run-1", "kind": "tool", "tool_name": "search_documents", "status": "completed", "result_count": 0}}
+            yield {"type": "feature", "feature": "streaming"}
+            yield {"type": "message_delta", "text": "bold**"}
+        chunks = [chunk async for chunk in stream_ui_messages({"type": "message_delta", "text": "**"}, remaining_events())]
+        events = [json.loads(chunk.removeprefix("data: ")) for chunk in chunks[:-1]]
+        activities = [event for event in events if event["type"] == "data-agent-activity"]
+        self.assertEqual([event["id"] for event in activities], ["activity-run-1", "activity-run-1"])
+        self.assertEqual(sum(event["type"] == "text-start" for event in events), 1)
+        self.assertEqual(sum(event["type"] == "text-end" for event in events), 1)
+        self.assertTrue(any(event["type"] == "data-feature-used" for event in events))
+
+    def test_history_does_not_send_activity_or_discovery_back_to_model(self) -> None:
+        request = ChatStreamRequest.model_validate({"messages": [{
+            "id": "a", "role": "assistant", "parts": [
+                {"type": "data-agent-activity", "data": {"id": "x", "status": "completed"}},
+                {"type": "data-feature-used", "data": {"feature": "streaming"}},
+                {"type": "text", "text": "Public answer"},
+            ],
+        }]})
+        self.assertEqual(request.to_agent_messages(), [{"role": "assistant", "content": "Public answer"}])
 
 
 if __name__ == "__main__":
