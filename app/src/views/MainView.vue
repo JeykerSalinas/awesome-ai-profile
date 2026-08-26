@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, defineAsyncComponent, nextTick, ref } from "vue";
 import { useChat } from "@ai-sdk/vue";
 import { useDark } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
@@ -7,6 +7,12 @@ import { DefaultChatTransport } from "ai";
 import ChatMessageContent from "@/components/chat/ChatMessageContent.vue";
 import { useLocale } from "@/composables/useLocale";
 import type { ProfileMessage } from "@/types/chat";
+import { storyCopy } from "@/features/tour/story";
+
+const TechnologyTour = defineAsyncComponent(() => import("@/components/tour/TechnologyTour.vue"));
+const tourOpen = ref(false);
+const tourLoaded = ref(false);
+const draftAnnouncement = ref("");
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const input = ref("");
@@ -16,6 +22,21 @@ const isUploading = ref(false);
 const uploadError = ref("");
 const isDark = useDark();
 const { locale, text } = useLocale();
+const tourText = computed(() => storyCopy[locale.value]);
+
+function openTour() {
+  tourLoaded.value = true;
+  tourOpen.value = true;
+}
+
+async function prepareTourQuestion(question: string) {
+  tourOpen.value = false;
+  // Preserve an existing draft and never send a message on the visitor's behalf.
+  input.value = input.value.trim() ? `${input.value}\n\n${question}` : question;
+  draftAnnouncement.value = tourText.value.draftReady;
+  await nextTick();
+  document.querySelector<HTMLTextAreaElement>('[data-tour="composer"] textarea')?.focus();
+}
 // const messages = ref([{"parts":[{"type":"text","text":"Why should we hire Jeyker?"}],"id":"U3u32FLC4XP4T2T2","role":"user","metadata":"__vue_devtool_undefined__"},{"id":"assistant-aea52d36459942af8fefb122effb93a0","metadata":"__vue_devtool_undefined__","role":"assistant","parts":[{"type":"step-start"},{"type":"data-source","id":"source-b66cf3d921e74cf8b19eb2d03ab0a2dc","data":{"path":"knowledge/profile.json"}},{"type":"text","text":"Jeyker Salinas is a Software Engineer who specializes in building high-quality, product-oriented applications. You should consider him for your team because he brings a unique combination of expertise that bridges modern web development and practical Artificial Intelligence.\n\nHere are the key reasons why Jeyker is a strong candidate:\n\n*   **Frontend Expertise:** He has a deep focus on frontend engineering, specifically using **Vue.js** and **TypeScript** to create scalable and maintainable architectures.\n*   **AI & RAG Integration:** Jeyker is highly proficient in developing conversational interfaces for Large Language Models (LLMs) and implementing **Retrieval-Augmented Generation (RAG)** applications.\n*   **Full-Stack Capability:** He is experienced in backend integration, particularly with **Python and FastAPI**, allowing him to work effectively across the stack.\n*   **Product Mindset:** He is not just focused on writing code; he is committed to delivering software that is user-focused and aligned with product goals.\n\nIf you are looking for an engineer who can translate complex AI capabilities into intuitive, reliable web interfaces, Jeyker would be a valuable addition to your project.","providerMetadata":"__vue_devtool_undefined__","state":"done"}]}])
 const suggestionIcons = [
   "i-lucide-sparkles",
@@ -112,7 +133,7 @@ function removeDocument(documentId: string) {
       <header
         class="flex items-center justify-between gap-3 border-b border-(--django-border) px-5 py-4 sm:px-8"
       >
-        <div class="flex min-w-0 items-center gap-3">
+        <div data-tour="identity" class="flex min-w-0 items-center gap-3">
           <img
             src="/django_design/django-app-icon-dark.svg"
             alt="Django, Jeyker's AI assistant"
@@ -124,7 +145,7 @@ function removeDocument(documentId: string) {
             >
               Django AI
             </p>
-            <p class="text-xs text-(--django-muted)">
+            <p class="hidden text-xs text-(--django-muted) sm:block">
               {{ text.assistantDescription }}
             </p>
           </div>
@@ -141,24 +162,35 @@ function removeDocument(documentId: string) {
             {{ text.availableForWork }}
           </UBadge>
           <UButton
-            icon="i-lucide-languages"
-            :label="locale.toUpperCase()"
-            :aria-label="text.switchLanguage"
-            :title="text.switchLanguage"
+            icon="i-lucide-route"
+            :aria-label="tourText.launch"
+            :title="tourText.launch"
             color="neutral"
             variant="ghost"
             class="rounded-full text-(--django-copy)"
-            @click="locale = locale === 'es' ? 'en' : 'es'"
+            @click="openTour"
           />
-          <UButton
-            :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
-            :aria-label="isDark ? text.lightMode : text.darkMode"
-            :title="isDark ? text.lightMode : text.darkMode"
-            color="neutral"
-            variant="ghost"
-            class="rounded-full text-(--django-copy)"
-            @click="isDark = !isDark"
-          />
+          <div data-tour="preferences" class="flex items-center gap-1">
+            <UButton
+              icon="i-lucide-languages"
+              :label="locale.toUpperCase()"
+              :aria-label="text.switchLanguage"
+              :title="text.switchLanguage"
+              color="neutral"
+              variant="ghost"
+              class="rounded-full text-(--django-copy)"
+              @click="locale = locale === 'es' ? 'en' : 'es'"
+            />
+            <UButton
+              :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
+              :aria-label="isDark ? text.lightMode : text.darkMode"
+              :title="isDark ? text.lightMode : text.darkMode"
+              color="neutral"
+              variant="ghost"
+              class="rounded-full text-(--django-copy)"
+              @click="isDark = !isDark"
+            />
+          </div>
         </div>
       </header>
 
@@ -194,7 +226,17 @@ function removeDocument(documentId: string) {
           >
             {{ text.introduction }}
           </p>
-          <div class="mt-10 grid gap-3 text-left sm:grid-cols-2">
+          <button type="button" class="story-invitation" @click="openTour">
+            <span class="story-invitation-icon" aria-hidden="true"><UIcon name="i-lucide-route" /></span>
+            <span class="story-invitation-copy">
+              <span class="story-invitation-eyebrow">{{ tourText.eyebrow }}<span>01 — 07</span></span>
+              <span class="story-invitation-title">{{ tourText.launch }}</span>
+              <span class="story-invitation-detail">{{ tourText.teaser }}</span>
+              <span class="story-invitation-duration"><UIcon name="i-lucide-clock-3" />{{ tourText.duration }}</span>
+            </span>
+            <UIcon name="i-lucide-arrow-up-right" class="story-invitation-arrow" />
+          </button>
+          <div data-tour="conversation" class="mt-6 grid gap-3 text-left sm:grid-cols-2">
             <button
               v-for="suggestion in suggestions"
               :key="suggestion.label"
@@ -213,6 +255,7 @@ function removeDocument(documentId: string) {
 
         <UContainer
           v-else
+          data-tour="conversation"
           class="flex w-full max-w-4xl flex-1 flex-col px-4 py-5 sm:px-8"
         >
           <UChatMessages
@@ -288,6 +331,7 @@ function removeDocument(documentId: string) {
           </div>
           <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="hidden" @change="uploadDocument" />
           <UChatPrompt
+            data-tour="composer"
             v-model="input"
             :error="error"
             :placeholder="text.placeholder"
@@ -303,6 +347,7 @@ function removeDocument(documentId: string) {
               </span>
               <div class="flex items-center gap-1">
                 <UButton
+                  data-tour="upload"
                   icon="i-lucide-paperclip"
                   type="button"
                   :aria-label="text.uploadDocument"
@@ -323,11 +368,31 @@ function removeDocument(documentId: string) {
               </div>
             </template>
           </UChatPrompt>
-          <p class="mt-3 text-center text-xs text-(--django-muted)">
+          <p data-tour="stack" class="mt-3 text-center text-xs text-(--django-muted)">
             {{ text.builtWith }}
           </p>
         </div>
       </div>
     </section>
+    <p class="sr-only" role="status">{{ draftAnnouncement }}</p>
+    <TechnologyTour v-if="tourLoaded" :open="tourOpen" @close="tourOpen = false" @prepare-question="prepareTourQuestion" />
   </main>
 </template>
+
+<style scoped>
+.story-invitation { position: relative; display: flex; align-items: center; gap: 18px; width: 100%; margin-top: 28px; padding: 22px; overflow: hidden; border: 1px solid var(--django-border); border-radius: 14px; background: linear-gradient(120deg, var(--django-surface), var(--django-surface-soft)); text-align: left; cursor: pointer; transition: border-color 200ms, box-shadow 200ms, transform 200ms; }
+.story-invitation:hover { transform: translateY(-2px); border-color: var(--color-django-terracotta); box-shadow: 0 10px 30px rgb(50 8 8 / 10%); }
+.story-invitation:focus-visible { outline: 2px solid var(--color-django-terracotta); outline-offset: 4px; }
+.story-invitation-icon { flex-shrink: 0; display: grid; place-items: center; width: 48px; height: 58px; border: 1px solid var(--django-border); border-radius: 24px 24px 10px 10px; color: var(--django-heading); background: var(--django-surface); }
+.story-invitation-icon > * { width: 23px; height: 23px; }
+.story-invitation-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 7px; }
+.story-invitation-eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 9px; font-weight: 750; letter-spacing: .14em; color: var(--django-muted); }
+.story-invitation-eyebrow > span { font-family: ui-monospace, monospace; font-weight: 400; }
+.story-invitation-title { font-size: 18px; font-weight: 650; letter-spacing: -.025em; color: var(--django-heading); }
+.story-invitation-detail { font-size: 12px; line-height: 1.6; color: var(--django-copy); }
+.story-invitation-duration { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--django-muted); }
+.story-invitation-arrow { width: 22px; height: 22px; flex-shrink: 0; color: var(--django-heading); transition: transform 200ms; }
+.story-invitation:hover .story-invitation-arrow { transform: translate(2px, -2px); }
+@media (max-width: 420px) { .story-invitation { padding: 16px; gap: 12px; } .story-invitation-icon { display: none; } .story-invitation-title { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .story-invitation, .story-invitation-arrow { transition: none; transform: none; } }
+</style>
