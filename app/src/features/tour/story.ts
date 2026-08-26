@@ -202,7 +202,7 @@ export const chapters = [
 export const storyCopy = {
   en: {
     eyebrow: 'BEHIND THE CHAT',
-    launch: 'See how it’s built',
+    launch: 'Why this project is so cool?',
     teaser:
       'Seven chapters. One conversation. Explore the engineering behind Django.',
     duration: 'About 3 minutes',
@@ -226,7 +226,7 @@ export const storyCopy = {
   },
   es: {
     eyebrow: 'DETRÁS DEL CHAT',
-    launch: 'Descubre cómo está hecho',
+    launch: '¿Por qué esté proyecto es tan genial?',
     teaser:
       'Siete capítulos. Una conversación. Explora la ingeniería detrás de Django.',
     duration: 'Unos 3 minutos',

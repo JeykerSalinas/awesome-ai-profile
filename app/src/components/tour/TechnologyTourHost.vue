@@ -8,6 +8,7 @@ const TechnologyTour = defineAsyncComponent(
   () => import('./TechnologyTour.vue'),
 )
 const draft = defineModel<string>('draft', { required: true })
+const emit = defineEmits<{ opened: [] }>()
 const { locale } = useLocale()
 const open = ref(false)
 const loaded = ref(false)
@@ -16,6 +17,7 @@ const announcement = ref('')
 function openTour() {
   loaded.value = true
   open.value = true
+  emit('opened')
 }
 
 defineExpose({ openTour })

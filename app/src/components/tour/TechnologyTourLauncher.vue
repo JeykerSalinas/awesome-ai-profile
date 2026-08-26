@@ -1,15 +1,23 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useLocale } from '@/composables/useLocale'
-import { chapters, storyCopy } from '@/features/tour/story'
+import { computed } from "vue";
+import { useLocale } from "@/composables/useLocale";
+import { storyCopy } from "@/features/tour/story";
 
-withDefaults(defineProps<{ variant?: 'invitation' | 'icon' }>(), {
-  variant: 'invitation',
-})
-const emit = defineEmits<{ open: [] }>()
-const { locale } = useLocale()
-const copy = computed(() => storyCopy[locale.value])
-const chapterCount = String(chapters.length).padStart(2, '0')
+const props = withDefaults(
+  defineProps<{
+    variant?: "invitation" | "icon";
+    pulse?: boolean;
+    seen?: boolean;
+  }>(),
+  {
+    variant: "invitation",
+    pulse: false,
+    seen: false,
+  }
+);
+const emit = defineEmits<{ open: [] }>();
+const { locale } = useLocale();
+const copy = computed(() => storyCopy[locale.value]);
 </script>
 
 <template>
@@ -23,56 +31,37 @@ const chapterCount = String(chapters.length).padStart(2, '0')
     class="rounded-full text-(--django-copy)"
     @click="emit('open')"
   />
-  <button v-else type="button" class="story-invitation" @click="emit('open')">
-    <span class="story-invitation-icon" aria-hidden="true"
-      ><UIcon name="i-lucide-route"
-    /></span>
-    <span class="story-invitation-copy">
-      <span class="story-invitation-eyebrow"
-        >{{ copy.eyebrow }}<span>01 — {{ chapterCount }}</span></span
-      >
-      <span class="story-invitation-title">{{ copy.launch }}</span>
-      <span class="story-invitation-detail">{{ copy.teaser }}</span>
-      <span class="story-invitation-duration"
-        ><UIcon name="i-lucide-clock-3" />{{ copy.duration }}</span
-      >
-    </span>
-    <UIcon name="i-lucide-arrow-up-right" class="story-invitation-arrow" />
+
+  <button
+    v-else
+    type="button"
+    class="story-invitation relative group flex items-center gap-3 rounded-[5px] border border-(--django-border) bg-(--django-surface) px-4 py-4 text-sm text-(--django-copy) transition hover:border-primary hover:bg-(--django-surface-soft)"
+    :class="{
+      'story-invitation--pulsing': props.pulse,
+      'story-invitation--seen': props.seen,
+    }"
+    @click="emit('open')"
+  >
+    <UIcon
+      name="i-lucide-route"
+      class="size-5 shrink-0 text-(--django-muted) transition group-hover:text-primary"
+    />
+
+    <span class="story-invitation-title">{{ copy.launch }}</span>
   </button>
 </template>
 
 <style scoped>
 .story-invitation {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  width: 100%;
-  margin-top: 28px;
-  padding: 22px;
-  overflow: hidden;
-  border: 1px solid var(--django-border);
-  border-radius: 14px;
-  background: linear-gradient(
-    120deg,
-    var(--django-surface),
-    var(--django-surface-soft)
-  );
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 200ms,
-    box-shadow 200ms,
-    transform 200ms;
+  animation: none;
 }
-.story-invitation:hover {
-  transform: translateY(-2px);
-  border-color: var(--color-django-terracotta);
-  box-shadow: 0 10px 30px rgb(50 8 8 / 10%);
+.story-invitation--pulsing {
+  animation: story-invitation-pulse 2.4s ease-in-out infinite;
 }
-.story-invitation:focus-visible {
-  outline: 2px solid var(--color-django-terracotta);
-  outline-offset: 4px;
+.story-invitation--seen .story-invitation-title {
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--django-copy);
 }
 .story-invitation-icon {
   flex-shrink: 0;
@@ -111,7 +100,7 @@ const chapterCount = String(chapters.length).padStart(2, '0')
   font-weight: 400;
 }
 .story-invitation-title {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 650;
   letter-spacing: -0.025em;
   color: var(--django-heading);
@@ -128,15 +117,17 @@ const chapterCount = String(chapters.length).padStart(2, '0')
   font-size: 10px;
   color: var(--django-muted);
 }
-.story-invitation-arrow {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  color: var(--django-heading);
-  transition: transform 200ms;
-}
-.story-invitation:hover .story-invitation-arrow {
-  transform: translate(2px, -2px);
+
+@keyframes story-invitation-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(229 109 88 / 0);
+  }
+  50% {
+    transform: scale(1.015);
+    box-shadow: 0 0 0 8px rgb(229 109 88 / 0.08);
+  }
 }
 @media (max-width: 420px) {
   .story-invitation {
@@ -153,6 +144,7 @@ const chapterCount = String(chapters.length).padStart(2, '0')
 @media (prefers-reduced-motion: reduce) {
   .story-invitation,
   .story-invitation-arrow {
+    animation: none;
     transition: none;
     transform: none;
   }
