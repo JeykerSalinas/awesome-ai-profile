@@ -1,66 +1,82 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { isToolUIPart } from 'ai'
+import { computed } from "vue";
+import { isToolUIPart } from "ai";
 
-import CandidatePhotoCard from '@/components/chat/CandidatePhotoCard.vue'
-import ToolApprovalCard from '@/components/chat/ToolApprovalCard.vue'
-import AgentActivityPanel from '@/components/chat/AgentActivityPanel.vue'
-import FeatureDiscoveries from '@/components/chat/FeatureDiscoveries.vue'
-import ContactCard from '@/components/chat/ContactCard.vue'
-import { useContactFlow } from '@/composables/useContactFlow'
-import { useLocale } from '@/composables/useLocale'
-import { renderMarkdown } from '@/utils/chatMarkdown'
-import type { ProfileMessage } from '@/types/chat'
+import CandidatePhotoCard from "@/components/chat/CandidatePhotoCard.vue";
+import ToolApprovalCard from "@/components/chat/ToolApprovalCard.vue";
+import AgentActivityPanel from "@/components/chat/AgentActivityPanel.vue";
+import FeatureDiscoveries from "@/components/chat/FeatureDiscoveries.vue";
+import ContactCard from "@/components/chat/ContactCard.vue";
+import { useContactFlow } from "@/composables/useContactFlow";
+import { useLocale } from "@/composables/useLocale";
+import { renderMarkdown } from "@/utils/chatMarkdown";
+import type { ProfileMessage } from "@/types/chat";
 
 const props = defineProps<{
-  message: ProfileMessage
-  hideResources?: boolean
-  active?: boolean
-}>()
+  message: ProfileMessage;
+  hideResources?: boolean;
+  active?: boolean;
+}>();
 
 const emit = defineEmits<{
-  approve: [approvalId: string]
-  reject: [approvalId: string]
-}>()
+  approve: [approvalId: string];
+  reject: [approvalId: string];
+}>();
 
-const { text } = useLocale()
-const contact = useContactFlow(() => props.message, () => !!props.active)
+const { text } = useLocale();
+const contact = useContactFlow(
+  () => props.message,
+  () => !!props.active
+);
 
 const resourceParts = computed(() =>
   props.message.parts.filter(
-    part => part.type === 'data-source' || part.type === 'data-user-document',
-  ),
-)
+    (part) => part.type === "data-source" || part.type === "data-user-document"
+  )
+);
 
 const contentParts = computed(() =>
   props.message.parts.filter(
-    part => part.type !== 'data-source' && part.type !== 'data-user-document'
-      && part.type !== 'data-agent-activity' && part.type !== 'data-feature-used'
-      && part.type !== 'data-contact-offer',
-  ),
-)
+    (part) =>
+      part.type !== "data-source" &&
+      part.type !== "data-user-document" &&
+      part.type !== "data-agent-activity" &&
+      part.type !== "data-feature-used" &&
+      part.type !== "data-contact-offer"
+  )
+);
 
 const shouldShowResources = computed(
-  () => resourceParts.value.length > 0 && !props.hideResources,
-)
+  () => resourceParts.value.length > 0 && !props.hideResources
+);
 
 // Recomputed when a photo part arrives, including after streamed text.
 const displayedPhotoSources = computed(() =>
-  props.message.parts.flatMap(part =>
-    part.type === 'data-candidate-photo' ? [part.data.src] : [],
-  ),
-)
-const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.location.href
+  props.message.parts.flatMap((part) =>
+    part.type === "data-candidate-photo" ? [part.data.src] : []
+  )
+);
+const markdownBaseUrl =
+  typeof window === "undefined" ? undefined : window.location.href;
 </script>
 
 <template>
   <div class="min-w-0 space-y-3">
-    <AgentActivityPanel v-if="message.role === 'assistant'" :message="message" :active="!!active" />
-    <template v-for="(part, index) in contentParts" :key="`${props.message.id}-${index}`">
+    <AgentActivityPanel
+      v-if="message.role === 'assistant'"
+      :message="message"
+      :active="!!active"
+    />
+    <template
+      v-for="(part, index) in contentParts"
+      :key="`${props.message.id}-${index}`"
+    >
       <div
         v-if="part.type === 'text'"
         class="markdown-content text-[15px] leading-7 text-(--django-copy)"
-        v-html="renderMarkdown(part.text, displayedPhotoSources, markdownBaseUrl)"
+        v-html="
+          renderMarkdown(part.text, displayedPhotoSources, markdownBaseUrl)
+        "
       />
 
       <CandidatePhotoCard
@@ -72,7 +88,9 @@ const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.locat
         v-else-if="part.type === 'data-technologies'"
         class="rounded-[5px] border border-(--django-border) bg-(--django-surface) p-4"
       >
-        <p class="mb-3 text-sm font-medium text-(--django-copy)">{{ part.data.label }}</p>
+        <p class="mb-3 text-sm font-medium text-(--django-copy)">
+          {{ part.data.label }}
+        </p>
         <div class="flex flex-wrap gap-2">
           <UBadge
             v-for="technology in part.data.items"
@@ -85,10 +103,20 @@ const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.locat
         </div>
       </div>
 
-      <UCard v-else-if="part.type === 'data-project'" class="max-w-lg bg-(--django-surface)">
-        <p class="font-semibold text-(--django-heading)">{{ part.data.title }}</p>
-        <p class="mt-2 text-sm text-(--django-copy)">{{ part.data.description }}</p>
-        <div v-if="part.data.technologies?.length" class="mt-3 flex flex-wrap gap-2">
+      <UCard
+        v-else-if="part.type === 'data-project'"
+        class="max-w-lg bg-(--django-surface)"
+      >
+        <p class="font-semibold text-(--django-heading)">
+          {{ part.data.title }}
+        </p>
+        <p class="mt-2 text-sm text-(--django-copy)">
+          {{ part.data.description }}
+        </p>
+        <div
+          v-if="part.data.technologies?.length"
+          class="mt-3 flex flex-wrap gap-2"
+        >
           <UBadge
             v-for="technology in part.data.technologies"
             :key="technology"
@@ -112,13 +140,20 @@ const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.locat
       <ToolApprovalCard
         v-else-if="isToolUIPart(part) && part.state === 'approval-requested'"
         :approval-id="part.approval.id"
-        :tool-name="part.type === 'dynamic-tool' ? part.toolName : part.type.replace('tool-', '')"
+        :tool-name="
+          part.type === 'dynamic-tool'
+            ? part.toolName
+            : part.type.replace('tool-', '')
+        "
         :input="part.input"
         @approve="emit('approve', $event)"
         @reject="emit('reject', $event)"
       />
     </template>
-
+    <ContactCard
+      v-if="contact.visible.value && contact.controller"
+      :controller="contact.controller"
+    />
     <Transition
       enter-active-class="transition-all duration-200 ease-out"
       enter-from-class="translate-y-1 opacity-0"
@@ -126,31 +161,40 @@ const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.locat
       leave-active-class="transition-all duration-150 ease-in"
       leave-from-class="translate-y-0 opacity-100"
       leave-to-class="translate-y-1 opacity-0"
-    >
-      <div v-if="shouldShowResources" class="flex flex-wrap gap-2 pt-1">
-        <template v-for="(part, index) in resourceParts" :key="`${props.message.id}-resource-${index}`">
-          <div
-            v-if="part.type === 'data-source'"
-            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+      ><div>
+        <div v-if="shouldShowResources" class="flex flex-wrap gap-2 pt-1">
+          <template
+            v-for="(part, index) in resourceParts"
+            :key="`${props.message.id}-resource-${index}`"
           >
-            <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
-            <span class="font-medium">{{ text.verifiedSource }}:</span>
-            <span class="truncate">{{ part.data.path }}</span>
-          </div>
+            <div
+              v-if="part.type === 'data-source'"
+              class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+            >
+              <UIcon
+                name="i-lucide-file-check-2"
+                class="size-4 shrink-0 text-primary"
+              />
+              <span class="font-medium">{{ text.verifiedSource }}:</span>
+              <span class="truncate">{{ part.data.path }}</span>
+            </div>
 
-          <div
-            v-else-if="part.type === 'data-user-document'"
-            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
-          >
-            <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-primary" />
-            <span class="font-medium">{{ text.uploadedDocument }}:</span>
-            <span class="truncate">{{ part.data.filename }}</span>
-          </div>
-        </template>
+            <div
+              v-else-if="part.type === 'data-user-document'"
+              class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+            >
+              <UIcon
+                name="i-lucide-file-text"
+                class="size-4 shrink-0 text-primary"
+              />
+              <span class="font-medium">{{ text.uploadedDocument }}:</span>
+              <span class="truncate">{{ part.data.filename }}</span>
+            </div>
+          </template>
+        </div>
+        <FeatureDiscoveries :message="message" />
       </div>
     </Transition>
-    <FeatureDiscoveries :message="message" />
-    <ContactCard v-if="contact.visible.value && contact.controller" :controller="contact.controller" />
   </div>
 </template>
 
