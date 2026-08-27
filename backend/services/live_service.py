@@ -133,12 +133,12 @@ async def _receive_browser_audio(websocket: WebSocket, session: Any) -> None:
 
 
 async def _send_transcription(websocket: WebSocket, role: str, transcription: Any) -> None:
-    if transcription and transcription.text:
+    if transcription and (transcription.text or transcription.finished):
         await websocket.send_json(
             {
                 "type": "transcript",
                 "role": role,
-                "text": transcription.text,
+                "text": transcription.text or "",
                 "finished": bool(transcription.finished),
             }
         )

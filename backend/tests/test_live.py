@@ -5,7 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from services.live_service import LiveServiceError, build_live_config, describe_live_error
+from services.live_service import (
+    LiveServiceError,
+    _send_transcription,
+    build_live_config,
+    describe_live_error,
+)
 from services.live_tools_service import build_live_tool_config, build_live_tools, execute_live_tool
 
 
@@ -56,6 +61,23 @@ class LiveConfigurationTests(unittest.TestCase):
         with self.assertLogs("services.live_tools_service", level="ERROR"):
             result = __import__("asyncio").run(execute_live_tool(tool, {}))
         self.assertEqual(result, {"error": "The requested tool could not be completed."})
+
+
+class LiveTranscriptionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_forwards_finished_marker_without_text(self) -> None:
+        websocket = SimpleNamespace(send_json=AsyncMock())
+        transcription = SimpleNamespace(text=None, finished=True)
+
+        await _send_transcription(websocket, "user", transcription)
+
+        websocket.send_json.assert_awaited_once_with(
+            {
+                "type": "transcript",
+                "role": "user",
+                "text": "",
+                "finished": True,
+            }
+        )
 
 
 class LiveWebSocketEndpointTests(unittest.TestCase):

@@ -4,6 +4,11 @@ import { computed, onBeforeUnmount, ref } from "vue";
 import { useLocale } from "@/composables/useLocale";
 import FeatureExplainer from "@/components/chat/FeatureExplainer.vue";
 import {
+  mergeLiveTranscriptText,
+  type LiveTranscriptRole,
+  type LiveTranscriptUpdate,
+} from "@/features/live/transcript";
+import {
   buildLiveWebSocketUrl,
   LIVE_OUTPUT_SAMPLE_RATE,
   pcm16ToFloat32,
@@ -22,6 +27,7 @@ type LiveControlMessage = {
   status?: "running" | "completed";
   role?: "user" | "assistant";
   text?: string;
+  finished?: boolean;
   result?: string;
 };
 
@@ -29,6 +35,10 @@ const props = defineProps<{
   apiBaseUrl: string;
   documentIds?: string[];
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+}>();
+
+const emit = defineEmits<{
+  transcript: [update: LiveTranscriptUpdate];
 }>();
 
 const { locale, text } = useLocale();
@@ -49,6 +59,12 @@ let captureProcessor: ScriptProcessorNode | null = null;
 let silentGain: GainNode | null = null;
 let nextPlaybackTime = 0;
 const playbackSources = new Set<AudioBufferSourceNode>();
+let transcriptTurnId = "";
+let transcriptTurnNumber = 0;
+const transcriptBuffers: Record<LiveTranscriptRole, string> = {
+  user: "",
+  assistant: "",
+};
 
 const active = computed(() => state.value !== "idle" && state.value !== "error");
 const panelVisible = computed(() => state.value !== "idle" || Boolean(errorMessage.value));
@@ -97,6 +113,44 @@ function playAudio(buffer: ArrayBuffer) {
   source.start(startAt);
 }
 
+function beginTranscriptSession() {
+  transcriptTurnNumber = 0;
+  transcriptTurnId = `live-${crypto.randomUUID()}-${transcriptTurnNumber}`;
+  transcriptBuffers.user = "";
+  transcriptBuffers.assistant = "";
+}
+
+function emitTranscriptUpdate(
+  role: LiveTranscriptRole,
+  fragment: string,
+  finished: boolean
+) {
+  transcriptBuffers[role] = mergeLiveTranscriptText(
+    transcriptBuffers[role],
+    fragment
+  );
+  const completeText = transcriptBuffers[role];
+  if (!completeText) return;
+
+  transcript.value = completeText;
+  emit("transcript", {
+    id: `${transcriptTurnId}-${role}`,
+    turnId: transcriptTurnId,
+    role,
+    text: completeText,
+    finished,
+  });
+}
+
+function completeTranscriptTurn() {
+  emitTranscriptUpdate("user", "", true);
+  emitTranscriptUpdate("assistant", "", true);
+  transcriptTurnNumber += 1;
+  transcriptTurnId = transcriptTurnId.replace(/-\d+$/, `-${transcriptTurnNumber}`);
+  transcriptBuffers.user = "";
+  transcriptBuffers.assistant = "";
+}
+
 function startMicrophoneCapture() {
   if (!audioContext || !microphoneStream || captureProcessor) return;
   microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
@@ -136,7 +190,17 @@ function handleControlMessage(message: LiveControlMessage) {
     return;
   }
   if (message.type === "transcript" && message.text) {
-    transcript.value = message.text;
+    if (message.role) {
+      emitTranscriptUpdate(message.role, message.text, Boolean(message.finished));
+    }
+    return;
+  }
+  if (message.type === "transcript" && message.role && message.finished) {
+    emitTranscriptUpdate(message.role, "", true);
+    return;
+  }
+  if (message.type === "turn_complete") {
+    completeTranscriptTurn();
     return;
   }
   if (message.type === "error") {
@@ -165,6 +229,7 @@ async function startConversation() {
   errorRetryable.value = false;
   transcript.value = "";
   photoUrl.value = "";
+  beginTranscriptSession();
   state.value = "connecting";
 
   try {

@@ -10,6 +10,10 @@ import TechnologyTourHost from "@/components/tour/TechnologyTourHost.vue";
 import TechnologyTourLauncher from "@/components/tour/TechnologyTourLauncher.vue";
 import { useLocale } from "@/composables/useLocale";
 import { provideFeatureDiscovery } from "@/composables/useFeatureDiscovery";
+import {
+  upsertLiveTranscript,
+  type LiveTranscriptUpdate,
+} from "@/features/live/transcript";
 import type { ProfileMessage } from "@/types/chat";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -162,6 +166,10 @@ function markTourAsSeen() {
 
 function respondToApproval(approvalId: string, approved: boolean) {
   void addToolApprovalResponse({ id: approvalId, approved });
+}
+
+function addLiveTranscript(update: LiveTranscriptUpdate) {
+  messages.value = upsertLiveTranscript(messages.value, update);
 }
 
 async function uploadDocument(event: Event) {
@@ -508,6 +516,7 @@ useEventListener(window, "keydown", stopTourPulse);
                   :api-base-url="apiBaseUrl"
                   :document-ids="liveDocumentIds"
                   :history="liveHistory"
+                  @transcript="addLiveTranscript"
                 />
                 <UChatPromptSubmit
                   :status="status"
