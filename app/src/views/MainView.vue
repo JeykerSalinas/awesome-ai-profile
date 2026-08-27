@@ -396,7 +396,6 @@ useEventListener(window, "keydown", stopTourPulse);
                 alt: 'Django',
               },
             }"
-            should-auto-scroll
             class="flex-1"
           >
             <template #content="{ message }">
