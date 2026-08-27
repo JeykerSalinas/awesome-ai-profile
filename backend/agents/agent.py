@@ -2,7 +2,13 @@ from collections.abc import AsyncIterator
 
 from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
-from agents.tools import build_search_documents_tool, get_candidate_photo, get_profile_section, search_experience
+from agents.tools import (
+    build_search_documents_tool,
+    get_candidate_photo,
+    get_contact_details,
+    get_profile_section,
+    search_experience,
+)
 from agents.activity import observe_agent_stream
 from agents.events import AgentStreamEvent
 
@@ -24,7 +30,13 @@ def get_agent(locale: SupportedLocale = "en", document_ids: list[str] | None = N
 
     return create_agent(
         model=model,
-        tools=[get_candidate_photo, get_profile_section, search_experience, build_search_documents_tool(document_ids)],
+        tools=[
+            get_candidate_photo,
+            get_contact_details,
+            get_profile_section,
+            search_experience,
+            build_search_documents_tool(document_ids),
+        ],
         system_prompt=build_professional_system_prompt(locale),
     )
 

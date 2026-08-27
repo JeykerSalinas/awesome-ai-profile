@@ -21,7 +21,10 @@ test('running and failed tools do not claim a successful RAG lookup', () => {
 
 test('actual tool names map to distinct explanations', () => {
   for (const [name, feature] of Object.entries(toolFeatures))
-    assert.deepEqual(messageFeatures(message('m', [activity('a', name)])), ['tools', feature])
+    assert.deepEqual(
+      messageFeatures(message('m', [activity('a', name)])),
+      feature === 'tools' ? ['tools'] : ['tools', feature],
+    )
   assert.deepEqual(messageFeatures(message('m', [activity('a', 'unknown_tool')])), [])
 })
 

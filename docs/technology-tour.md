@@ -16,7 +16,7 @@ The seven chapters follow a visitor's experience:
 | Localization | Browser-language detection, saved preferences and locale-aware requests | `app/src/composables/useLocale.ts` |
 | Delivery | Automated frontend delivery; command-driven Docker/Azure backend deployment | `Makefile` |
 
-No claim is made that contact workflows, enforced approvals, OCR or automated backend deployment already exist. The privacy chapter explicitly explains that document text is processed by Google for embeddings and model context; memory-only application storage is not a promise of on-device processing. Expired uploads are cleaned during subsequent ingestion/search, not by a background timer.
+No claim is made that contact-message delivery, enforced approvals, OCR or automated backend deployment already exist. The assistant only exposes authorized public contact details through a read-only tool. The privacy chapter explicitly explains that document text is processed by Google for embeddings and model context; memory-only application storage is not a promise of on-device processing. Expired uploads are cleaned during subsequent ingestion/search, not by a background timer.
 
 ## How it works
 

@@ -11,6 +11,7 @@ from services.knowledge_service import (
     search_professional_experience,
 )
 from services.prompt_service import build_professional_system_prompt
+from services.public_contact import public_contact_details
 
 
 class KnowledgeSectionTests(unittest.TestCase):
@@ -109,6 +110,24 @@ class LocaleAndPromptTests(unittest.TestCase):
         self.assertIn("Respond entirely in English", prompt)
         self.assertIn("get_profile_section", prompt)
         self.assertIn("Never invent", prompt)
+
+    def test_contact_prompt_is_interest_based_and_read_only(self) -> None:
+        prompt = build_professional_system_prompt("en")
+        self.assertIn("interest in hiring", prompt)
+        self.assertIn("do not repeat an offer", prompt)
+        self.assertIn("call get_contact_details", prompt)
+        self.assertIn("no external messaging flow", prompt)
+
+    def test_public_contact_details_are_complete_and_authorized(self) -> None:
+        self.assertEqual(
+            public_contact_details(),
+            {
+                "phone": "+34 624 179 342",
+                "email": "jeyker.salinas13@gmail.com",
+                "github": "https://github.com/JeykerSalinas",
+                "linkedin": "https://www.linkedin.com/in/jeyker-salinas-608486158/",
+            },
+        )
 
     def test_spanish_prompt_translates_english_knowledge(self) -> None:
         prompt = build_professional_system_prompt("es")

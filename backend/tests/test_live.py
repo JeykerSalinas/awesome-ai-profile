@@ -26,7 +26,7 @@ class LiveConfigurationTests(unittest.TestCase):
         declarations = config.tools[0].function_declarations
         self.assertEqual(
             {declaration.name for declaration in declarations},
-            {"get_candidate_photo", "get_profile_section", "search_experience", "search_documents"},
+            {"get_candidate_photo", "get_contact_details", "get_profile_section", "search_experience", "search_documents"},
         )
         search_schema = next(item for item in declarations if item.name == "search_documents")
         self.assertIn("query", search_schema.parameters_json_schema["required"])
