@@ -14,6 +14,10 @@ type LiveState = "idle" | "connecting" | "listening" | "speaking" | "error";
 type LiveControlMessage = {
   type: "ready" | "error" | "interrupted" | "ending" | "turn_complete" | "transcript" | "tool";
   message?: string;
+  code?: string;
+  detail?: string;
+  retryable?: boolean;
+  stage?: string;
   name?: string;
   status?: "running" | "completed";
   role?: "user" | "assistant";
@@ -30,6 +34,10 @@ const props = defineProps<{
 const { locale, text } = useLocale();
 const state = ref<LiveState>("idle");
 const errorMessage = ref("");
+const errorCode = ref("");
+const errorDetail = ref("");
+const errorStage = ref("");
+const errorRetryable = ref(false);
 const activeTool = ref("");
 const transcript = ref("");
 const photoUrl = ref("");
@@ -43,6 +51,7 @@ let nextPlaybackTime = 0;
 const playbackSources = new Set<AudioBufferSourceNode>();
 
 const active = computed(() => state.value !== "idle" && state.value !== "error");
+const panelVisible = computed(() => state.value !== "idle" || Boolean(errorMessage.value));
 const statusLabel = computed(() => {
   if (activeTool.value) return text.value.liveUsingTool.replace("{tool}", activeTool.value);
   if (state.value === "connecting") return text.value.liveConnecting;
@@ -132,17 +141,28 @@ function handleControlMessage(message: LiveControlMessage) {
   }
   if (message.type === "error") {
     errorMessage.value = message.message || text.value.liveError;
+    errorCode.value = message.code || "live_session_failed";
+    errorDetail.value = message.detail || "";
+    errorStage.value = message.stage || "";
+    errorRetryable.value = Boolean(message.retryable);
     state.value = "error";
     return;
   }
   if (message.type === "ending") {
-    stopConversation();
+    errorMessage.value ||= text.value.liveSessionEnding;
+    errorCode.value ||= "session_ending";
+    errorRetryable.value = true;
+    state.value = "error";
   }
 }
 
 async function startConversation() {
   if (active.value) return;
   errorMessage.value = "";
+  errorCode.value = "";
+  errorDetail.value = "";
+  errorStage.value = "";
+  errorRetryable.value = false;
   transcript.value = "";
   photoUrl.value = "";
   state.value = "connecting";
@@ -184,6 +204,9 @@ async function startConversation() {
     };
     socket.onerror = () => {
       errorMessage.value = text.value.liveConnectionError;
+      errorCode.value = "browser_websocket_error";
+      errorStage.value = state.value === "connecting" ? "connecting" : "streaming";
+      errorRetryable.value = true;
       state.value = "error";
     };
     socket.onclose = () => {
@@ -212,7 +235,7 @@ function cleanupMedia() {
   audioContext = null;
 }
 
-function stopConversation() {
+function stopConversation(clearError = true) {
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "stop" }));
   }
@@ -223,6 +246,18 @@ function stopConversation() {
   transcript.value = "";
   photoUrl.value = "";
   state.value = "idle";
+  if (clearError) {
+    errorMessage.value = "";
+    errorCode.value = "";
+    errorDetail.value = "";
+    errorStage.value = "";
+    errorRetryable.value = false;
+  }
+}
+
+function retryConversation() {
+  stopConversation();
+  void startConversation();
 }
 
 function toggleConversation() {
@@ -230,7 +265,7 @@ function toggleConversation() {
   else void startConversation();
 }
 
-onBeforeUnmount(stopConversation);
+onBeforeUnmount(() => stopConversation());
 </script>
 
 <template>
@@ -248,9 +283,9 @@ onBeforeUnmount(stopConversation);
   <Teleport to="body">
     <Transition name="live-panel">
       <aside
-        v-if="state !== 'idle'"
+        v-if="panelVisible"
         class="live-conversation-panel"
-        role="status"
+        :role="state === 'error' ? 'alert' : 'status'"
         aria-live="polite"
       >
         <div class="live-orb" :class="`live-orb--${state}`" aria-hidden="true">
@@ -263,9 +298,15 @@ onBeforeUnmount(stopConversation);
           <p v-if="transcript" class="mt-1 truncate text-xs text-(--django-muted)">
             {{ transcript }}
           </p>
-          <p v-else class="mt-1 text-xs text-(--django-muted)">
+          <p v-else-if="state !== 'error'" class="mt-1 text-xs text-(--django-muted)">
             {{ text.liveHint }}
           </p>
+          <details v-if="state === 'error' && (errorCode || errorDetail)" class="mt-2 text-xs text-(--django-muted)">
+            <summary class="cursor-pointer font-medium">{{ text.liveTechnicalDetails }}</summary>
+            <p class="mt-1 break-words font-mono">
+              {{ [errorCode, errorStage, errorDetail].filter(Boolean).join(' · ') }}
+            </p>
+          </details>
         </div>
         <UButton
           v-if="state !== 'error'"
@@ -274,17 +315,28 @@ onBeforeUnmount(stopConversation);
           color="error"
           variant="soft"
           size="sm"
-          @click="stopConversation"
+          @click="() => stopConversation()"
         />
-        <UButton
-          v-else
-          icon="i-lucide-x"
-          :aria-label="text.liveClose"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          @click="stopConversation"
-        />
+        <div v-else class="flex items-center gap-1">
+          <UButton
+            v-if="errorRetryable"
+            icon="i-lucide-refresh-cw"
+            :aria-label="text.liveRetry"
+            :label="text.liveRetry"
+            color="primary"
+            variant="soft"
+            size="sm"
+            @click="retryConversation"
+          />
+          <UButton
+            icon="i-lucide-x"
+            :aria-label="text.liveClose"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="() => stopConversation()"
+          />
+        </div>
         <div v-if="photoUrl" class="flex w-full items-center gap-3 rounded-[5px] bg-(--django-surface-soft) p-2">
           <img :src="photoUrl" :alt="text.liveCandidatePhoto" class="size-14 rounded-[5px] object-cover" />
           <p class="text-xs text-(--django-copy)">{{ text.liveCandidatePhoto }}</p>

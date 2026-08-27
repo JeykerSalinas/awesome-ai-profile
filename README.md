@@ -172,6 +172,14 @@ The model defaults to `gemini-2.5-flash-native-audio-preview-12-2025`. The model
 
 Browser microphone access requires HTTPS in production or localhost in development. The deployed backend must accept WebSocket upgrades, and its `CORS_ALLOW_ORIGINS` value must include the exact frontend origin. Audio-only Live API sessions are currently limited by the provider; reconnect to begin a new session after one ends.
 
+If Gemini closes a session with WebSocket code `1011`, run the diagnostic from the repository root:
+
+```bash
+make live-diagnose
+```
+
+It first opens a minimal native-audio session and then repeats the test with the profile agent tools enabled. If the minimal test fails, the failure is between the configured Google project and Gemini Live. If only the tools test fails, inspect the tool declarations or tool-call handling. The command reads the existing `GOOGLE_API_KEY`, `GEMINI_LIVE_MODEL`, and `GEMINI_LIVE_VOICE` values from `backend/.env`; it never prints the API key.
+
 ## Versioning and releases
 
 This project follows semantic versioning (`MAJOR.MINOR.PATCH`). The release prepared by this branch is **0.3.0**, adding the guided technology tour, observable agent activity and contextual feature explanations to 0.2.0.

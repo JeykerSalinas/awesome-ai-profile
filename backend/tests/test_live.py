@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from services.live_service import build_live_config
+from services.live_service import LiveServiceError, build_live_config, describe_live_error
 from services.live_tools_service import build_live_tool_config, build_live_tools, execute_live_tool
 
 
@@ -32,6 +32,22 @@ class LiveConfigurationTests(unittest.TestCase):
             profile.parameters_json_schema["properties"]["section"]["enum"],
             ["profile", "experience", "education", "skills", "projects"],
         )
+
+    def test_minimal_diagnostic_config_excludes_tools(self) -> None:
+        settings = SimpleNamespace(gemini_live_voice="Kore")
+        with patch("services.live_service.get_settings", return_value=settings):
+            config = build_live_config("en", include_tools=False)
+        self.assertIsNone(config.tools)
+
+    def test_provider_internal_error_preserves_safe_diagnostics(self) -> None:
+        error = describe_live_error(
+            RuntimeError("1011 None. Internal error occurred."),
+            "streaming",
+        )
+        self.assertEqual(error.code, "provider_internal_error")
+        self.assertEqual(error.stage, "streaming")
+        self.assertTrue(error.retryable)
+        self.assertIn("1011", error.detail)
 
     def test_live_tool_execution_returns_safe_error(self) -> None:
         tool = MagicMock()
@@ -80,6 +96,35 @@ class LiveWebSocketEndpointTests(unittest.TestCase):
                 ["document-123"],
                 [{"role": "user", "content": "Tell me about RAG"}],
             ),
+        )
+
+    def test_returns_structured_live_service_error(self) -> None:
+        run_session = AsyncMock(
+            side_effect=LiveServiceError(
+                "Gemini failed.",
+                code="provider_internal_error",
+                detail="1011 Internal error occurred.",
+                retryable=True,
+                stage="streaming",
+            )
+        )
+        with patch("routes.live.run_live_session", run_session):
+            with self.client.websocket_connect(
+                "/live/ws", headers={"origin": "http://localhost:5173"}
+            ) as websocket:
+                websocket.send_text(json.dumps({"type": "start", "locale": "en"}))
+                event = websocket.receive_json()
+
+        self.assertEqual(
+            event,
+            {
+                "type": "error",
+                "code": "provider_internal_error",
+                "message": "Gemini failed.",
+                "detail": "1011 Internal error occurred.",
+                "retryable": True,
+                "stage": "streaming",
+            },
         )
 
 

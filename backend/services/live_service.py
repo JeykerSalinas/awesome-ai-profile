@@ -23,19 +23,85 @@ INPUT_AUDIO_MIME_TYPE = "audio/pcm;rate=16000"
 
 
 class LiveServiceError(Exception):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "live_service_error",
+        detail: str | None = None,
+        retryable: bool = False,
+        stage: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.detail = detail
+        self.retryable = retryable
+        self.stage = stage
+
+    def to_event(self) -> dict[str, Any]:
+        event: dict[str, Any] = {
+            "type": "error",
+            "code": self.code,
+            "message": str(self),
+            "retryable": self.retryable,
+        }
+        if self.detail:
+            event["detail"] = self.detail
+        if self.stage:
+            event["stage"] = self.stage
+        return event
+
+
+def describe_live_error(exc: Exception, stage: str) -> LiveServiceError:
+    provider_message = " ".join(str(exc).split())
+    normalized = provider_message.lower()
+
+    if "prepayment credits are depleted" in normalized:
+        return LiveServiceError(
+            "The Google AI project has no available prepaid credit.",
+            code="billing_credits_depleted",
+            detail="Gemini Live: prepayment credits are depleted.",
+            retryable=False,
+            stage=stage,
+        )
+    if "quota" in normalized or "rate limit" in normalized or "resource exhausted" in normalized:
+        return LiveServiceError(
+            "Gemini Live temporarily rejected the session because its quota was exceeded.",
+            code="quota_exceeded",
+            detail=provider_message[:500],
+            retryable=True,
+            stage=stage,
+        )
+    if "1011" in normalized or "internal error occurred" in normalized:
+        return LiveServiceError(
+            "Gemini Live closed the session because of an internal provider error.",
+            code="provider_internal_error",
+            detail=provider_message[:500] or "Gemini Live WebSocket closed with code 1011.",
+            retryable=True,
+            stage=stage,
+        )
+
+    return LiveServiceError(
+        "The live conversation could not be completed.",
+        code="live_session_failed",
+        detail=provider_message[:500] or type(exc).__name__,
+        retryable=True,
+        stage=stage,
+    )
 
 
 def build_live_config(
     locale: SupportedLocale,
     document_ids: list[str] | None = None,
+    *,
+    include_tools: bool = True,
 ) -> types.LiveConnectConfig:
     settings = get_settings()
     live_tools = build_live_tools(document_ids)
     return types.LiveConnectConfig(
         response_modalities=[types.Modality.AUDIO],
         system_instruction=build_professional_system_prompt(locale),
-        tools=[build_live_tool_config(live_tools)],
+        tools=[build_live_tool_config(live_tools)] if include_tools else None,
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
         speech_config=types.SpeechConfig(
@@ -147,17 +213,23 @@ async def run_live_session(
 ) -> None:
     settings = get_settings()
     if not settings.google_api_key:
-        raise LiveServiceError("GOOGLE_API_KEY is not configured.")
+        raise LiveServiceError(
+            "GOOGLE_API_KEY is not configured.",
+            code="configuration_error",
+            stage="configuration",
+        )
 
     live_tools = build_live_tools(document_ids)
     client: genai.Client | None = None
 
+    stage = "connecting"
     try:
         client = genai.Client(api_key=settings.google_api_key)
         async with client.aio.live.connect(
             model=settings.gemini_live_model,
             config=build_live_config(locale, document_ids),
         ) as session:
+            stage = "seeding_history"
             if history:
                 await session.send_client_content(
                     turns=[
@@ -169,6 +241,7 @@ async def run_live_session(
                     ],
                     turn_complete=False,
                 )
+            stage = "streaming"
             await websocket.send_json({"type": "ready"})
             browser_task = asyncio.create_task(_receive_browser_audio(websocket, session))
             gemini_task = asyncio.create_task(
@@ -188,8 +261,8 @@ async def run_live_session(
     except WebSocketDisconnect:
         return
     except Exception as exc:
-        logger.exception("Gemini Live session failed")
-        raise LiveServiceError("The live conversation could not be completed.") from exc
+        logger.exception("Gemini Live session failed during %s", stage)
+        raise describe_live_error(exc, stage) from exc
     finally:
         if client:
             with suppress(Exception):

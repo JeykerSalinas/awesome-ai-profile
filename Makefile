@@ -6,7 +6,7 @@ IMAGE_NAME ?= app-backend
 IMAGE_TAG ?= latest
 ACR_LOGIN_SERVER ?= $(if $(ACR_NAME),$(ACR_NAME).azurecr.io)
 
-.PHONY: help install back-install front back dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health azure-login acr-login deploy-back guard-%
+.PHONY: help install back-install front back live-diagnose dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health azure-login acr-login deploy-back guard-%
 
 help:
 	@echo "Available commands:"
@@ -14,6 +14,7 @@ help:
 	@echo "  make back-install Install backend requirements into backend/.venv"
 	@echo "  make front        Start the Vite frontend dev server"
 	@echo "  make back         Start the FastAPI backend dev server"
+	@echo "  make live-diagnose  Test Gemini Live with and without agent tools"
 	@echo "  make dev          Start frontend and backend together"
 	@echo "  make generate-types  Generate frontend event types from backend schemas"
 	@echo "  make type-check   Run frontend type checks"
@@ -41,6 +42,10 @@ front:
 
 back:
 	cd backend && .venv/bin/python main.py
+
+live-diagnose:
+	cd backend && .venv/bin/python scripts/diagnose_live.py --mode minimal
+	cd backend && .venv/bin/python scripts/diagnose_live.py --mode tools
 
 dev:
 	@trap 'kill 0' INT TERM EXIT; \

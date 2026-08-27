@@ -39,9 +39,14 @@ async def live_conversation(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         return
     except LiveServiceError as exc:
-        logger.warning("Live conversation closed: %s", exc)
+        logger.warning(
+            "Live conversation closed: code=%s stage=%s detail=%s",
+            exc.code,
+            exc.stage,
+            exc.detail,
+        )
         try:
-            await websocket.send_json({"type": "error", "message": str(exc)})
+            await websocket.send_json(exc.to_event())
             await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         except RuntimeError:
             pass
