@@ -183,7 +183,9 @@ async def _relay_gemini_output(
     websocket: WebSocket,
     session: Any,
     live_tools: dict[str, Any],
+    max_turns: int,
 ) -> None:
+    turns_used = 0
     while True:
         async for message in session.receive():
             if message.data:
@@ -199,7 +201,22 @@ async def _relay_gemini_output(
                 await _send_transcription(websocket, "user", content.input_transcription)
                 await _send_transcription(websocket, "assistant", content.output_transcription)
                 if content.turn_complete:
-                    await websocket.send_json({"type": "turn_complete"})
+                    turns_used += 1
+                    await websocket.send_json(
+                        {
+                            "type": "turn_complete",
+                            "turns_used": turns_used,
+                            "turns_remaining": max(0, max_turns - turns_used),
+                        }
+                    )
+                    if turns_used >= max_turns:
+                        await websocket.send_json(
+                            {
+                                "type": "limit_reached",
+                                "max_turns": max_turns,
+                            }
+                        )
+                        return
 
             if message.go_away:
                 await websocket.send_json({"type": "ending"})
@@ -242,10 +259,17 @@ async def run_live_session(
                     turn_complete=False,
                 )
             stage = "streaming"
-            await websocket.send_json({"type": "ready"})
+            await websocket.send_json(
+                {"type": "ready", "max_turns": settings.gemini_live_max_turns}
+            )
             browser_task = asyncio.create_task(_receive_browser_audio(websocket, session))
             gemini_task = asyncio.create_task(
-                _relay_gemini_output(websocket, session, live_tools)
+                _relay_gemini_output(
+                    websocket,
+                    session,
+                    live_tools,
+                    settings.gemini_live_max_turns,
+                )
             )
             done, pending = await asyncio.wait(
                 {browser_task, gemini_task},

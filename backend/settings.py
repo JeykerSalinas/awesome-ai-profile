@@ -50,6 +50,12 @@ class Settings(BaseSettings):
         default="Kore",
         validation_alias=AliasChoices("GEMINI_LIVE_VOICE"),
     )
+    gemini_live_max_turns: int = Field(
+        default=2,
+        ge=1,
+        le=10,
+        validation_alias=AliasChoices("GEMINI_LIVE_MAX_TURNS"),
+    )
 
 
 @lru_cache

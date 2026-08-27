@@ -172,6 +172,8 @@ The model defaults to `gemini-2.5-flash-native-audio-preview-12-2025`. The model
 
 Browser microphone access requires HTTPS in production or localhost in development. The deployed backend must accept WebSocket upgrades, and its `CORS_ALLOW_ORIGINS` value must include the exact frontend origin. Audio-only Live API sessions are currently limited by the provider; reconnect to begin a new session after one ends.
 
+The public demo defaults to two completed voice turns per browser per local calendar day. The frontend records that lightweight allowance locally and the backend independently closes every Live WebSocket after `GEMINI_LIVE_MAX_TURNS` responses. This prevents accidental long-running sessions, but it is not a security boundary: strict quota enforcement would require authenticated users or a trusted server-side rate limiter.
+
 If Gemini closes a session with WebSocket code `1011`, run the diagnostic from the repository root:
 
 ```bash
@@ -208,6 +210,7 @@ make dev
 ```dotenv
 GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025
 GEMINI_LIVE_VOICE=Kore
+GEMINI_LIVE_MAX_TURNS=2
 ```
 
 Useful commands:

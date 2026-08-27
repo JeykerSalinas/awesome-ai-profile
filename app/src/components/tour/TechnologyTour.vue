@@ -10,7 +10,11 @@ import {
 import { placeCard, type Rect } from '@/features/tour/placement'
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: []; prepareQuestion: [question: string] }>()
+const emit = defineEmits<{
+  close: []
+  complete: []
+  prepareQuestion: [question: string]
+}>()
 const { locale } = useLocale()
 const copy = computed(() => storyCopy[locale.value])
 const index = ref(0)
@@ -350,7 +354,7 @@ onBeforeUnmount(cleanup)
               <button
                 type="button"
                 class="tour-next"
-                @click="isLast ? emit('close') : goTo(index + 1)"
+                @click="isLast ? emit('complete') : goTo(index + 1)"
               >
                 {{ isLast ? copy.finish : copy.next
                 }}<UIcon

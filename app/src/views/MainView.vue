@@ -34,6 +34,8 @@ const requestDocumentIds = ref<string[]>([]);
 const uploadError = ref("");
 const isDark = useDark();
 const hasSeenTour = useStorage("django-tour-seen", false);
+const hasCompletedTour = useStorage("django-tour-completed", false);
+const hasTriedLivePrompt = useStorage("django-live-prompt-seen", false);
 const hasInteractedSinceLoad = ref(false);
 const { locale, text } = useLocale();
 const suggestionIcons = [
@@ -49,6 +51,9 @@ const suggestions = computed(() =>
 );
 const shouldPulseTourLauncher = computed(
   () => !hasSeenTour.value && !hasInteractedSinceLoad.value
+);
+const shouldPulseLive = computed(
+  () => hasCompletedTour.value && !hasTriedLivePrompt.value
 );
 
 const {
@@ -162,6 +167,14 @@ function stopTourPulse() {
 function markTourAsSeen() {
   hasSeenTour.value = true;
   stopTourPulse();
+}
+
+function markTourAsCompleted() {
+  hasCompletedTour.value = true;
+}
+
+function markLivePromptAsSeen() {
+  hasTriedLivePrompt.value = true;
 }
 
 function respondToApproval(approvalId: string, approved: boolean) {
@@ -512,12 +525,16 @@ useEventListener(window, "keydown", stopTourPulse);
                   size="sm"
                   @click="fileInput?.click()"
                 />
-                <LiveConversation
-                  :api-base-url="apiBaseUrl"
-                  :document-ids="liveDocumentIds"
-                  :history="liveHistory"
-                  @transcript="addLiveTranscript"
-                />
+                <span data-tour="live" class="inline-flex">
+                  <LiveConversation
+                    :api-base-url="apiBaseUrl"
+                    :document-ids="liveDocumentIds"
+                    :history="liveHistory"
+                    :pulse="shouldPulseLive"
+                    @transcript="addLiveTranscript"
+                    @tried="markLivePromptAsSeen"
+                  />
+                </span>
                 <UChatPromptSubmit
                   :status="status"
                   color="primary"
@@ -541,6 +558,7 @@ useEventListener(window, "keydown", stopTourPulse);
       ref="technologyTour"
       v-model:draft="input"
       @opened="markTourAsSeen"
+      @completed="markTourAsCompleted"
     />
   </main>
 </template>

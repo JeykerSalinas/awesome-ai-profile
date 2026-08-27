@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import { useStorage } from "@vueuse/core";
 
 import { useLocale } from "@/composables/useLocale";
 import FeatureExplainer from "@/components/chat/FeatureExplainer.vue";
@@ -9,15 +10,23 @@ import {
   type LiveTranscriptUpdate,
 } from "@/features/live/transcript";
 import {
+  DEFAULT_LIVE_TURN_LIMIT,
+  liveUsageDay,
+  normalizeLiveUsage,
+  recordLiveTurns,
+  remainingLiveTurns,
+  type LiveDailyUsage,
+} from "@/features/live/usage";
+import {
   buildLiveWebSocketUrl,
   LIVE_OUTPUT_SAMPLE_RATE,
   pcm16ToFloat32,
   resampleToPcm16,
 } from "@/utils/liveAudio";
 
-type LiveState = "idle" | "connecting" | "listening" | "speaking" | "error";
+type LiveState = "idle" | "connecting" | "listening" | "speaking" | "limit" | "error";
 type LiveControlMessage = {
-  type: "ready" | "error" | "interrupted" | "ending" | "turn_complete" | "transcript" | "tool";
+  type: "ready" | "error" | "interrupted" | "ending" | "turn_complete" | "limit_reached" | "transcript" | "tool";
   message?: string;
   code?: string;
   detail?: string;
@@ -28,6 +37,9 @@ type LiveControlMessage = {
   role?: "user" | "assistant";
   text?: string;
   finished?: boolean;
+  max_turns?: number;
+  turns_used?: number;
+  turns_remaining?: number;
   result?: string;
 };
 
@@ -35,10 +47,12 @@ const props = defineProps<{
   apiBaseUrl: string;
   documentIds?: string[];
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  pulse?: boolean;
 }>();
 
 const emit = defineEmits<{
   transcript: [update: LiveTranscriptUpdate];
+  tried: [];
 }>();
 
 const { locale, text } = useLocale();
@@ -48,6 +62,13 @@ const errorCode = ref("");
 const errorDetail = ref("");
 const errorStage = ref("");
 const errorRetryable = ref(false);
+const serverTurnLimit = ref(DEFAULT_LIVE_TURN_LIMIT);
+const sessionTurnsRecorded = ref(0);
+const limitMessage = ref("");
+const dailyUsage = useStorage<LiveDailyUsage>("django-live-daily-usage", {
+  day: liveUsageDay(),
+  turns: 0,
+});
 const activeTool = ref("");
 const transcript = ref("");
 const photoUrl = ref("");
@@ -58,6 +79,7 @@ let microphoneSource: MediaStreamAudioSourceNode | null = null;
 let captureProcessor: ScriptProcessorNode | null = null;
 let silentGain: GainNode | null = null;
 let nextPlaybackTime = 0;
+let closeWhenPlaybackEnds = false;
 const playbackSources = new Set<AudioBufferSourceNode>();
 let transcriptTurnId = "";
 let transcriptTurnNumber = 0;
@@ -66,12 +88,30 @@ const transcriptBuffers: Record<LiveTranscriptRole, string> = {
   assistant: "",
 };
 
-const active = computed(() => state.value !== "idle" && state.value !== "error");
-const panelVisible = computed(() => state.value !== "idle" || Boolean(errorMessage.value));
+const active = computed(() =>
+  ["connecting", "listening", "speaking"].includes(state.value)
+);
+const turnsRemaining = computed(() =>
+  remainingLiveTurns(dailyUsage.value, serverTurnLimit.value)
+);
+const panelVisible = computed(
+  () => state.value !== "idle" || Boolean(errorMessage.value || limitMessage.value)
+);
+const buttonTooltip = computed(() =>
+  turnsRemaining.value === 0
+    ? text.value.liveLimitReached
+    : props.pulse
+      ? text.value.liveTryMode
+      : text.value.liveMode
+);
+const remainingLabel = computed(() =>
+  text.value.liveTurnsRemaining.replace("{count}", String(turnsRemaining.value))
+);
 const statusLabel = computed(() => {
   if (activeTool.value) return text.value.liveUsingTool.replace("{tool}", activeTool.value);
   if (state.value === "connecting") return text.value.liveConnecting;
   if (state.value === "speaking") return text.value.liveSpeaking;
+  if (state.value === "limit") return limitMessage.value || text.value.liveLimitReached;
   if (state.value === "error") return errorMessage.value || text.value.liveError;
   return text.value.liveListening;
 });
@@ -105,12 +145,41 @@ function playAudio(buffer: ArrayBuffer) {
   playbackSources.add(source);
   source.onended = () => {
     playbackSources.delete(source);
+    if (playbackSources.size === 0 && closeWhenPlaybackEnds) {
+      socket?.close();
+      socket = null;
+      cleanupMedia();
+      return;
+    }
     if (playbackSources.size === 0 && state.value === "speaking") {
       state.value = "listening";
     }
   };
   state.value = "speaking";
   source.start(startAt);
+}
+
+function stopMicrophoneCapture() {
+  captureProcessor?.disconnect();
+  microphoneSource?.disconnect();
+  silentGain?.disconnect();
+  captureProcessor = null;
+  microphoneSource = null;
+  silentGain = null;
+  microphoneStream?.getTracks().forEach((track) => track.stop());
+  microphoneStream = null;
+}
+
+function showUsageLimit() {
+  limitMessage.value = text.value.liveLimitReached;
+  state.value = "limit";
+  closeWhenPlaybackEnds = true;
+  stopMicrophoneCapture();
+  if (playbackSources.size === 0) {
+    socket?.close();
+    socket = null;
+    cleanupMedia();
+  }
 }
 
 function beginTranscriptSession() {
@@ -169,6 +238,12 @@ function startMicrophoneCapture() {
 
 function handleControlMessage(message: LiveControlMessage) {
   if (message.type === "ready") {
+    serverTurnLimit.value = message.max_turns || DEFAULT_LIVE_TURN_LIMIT;
+    dailyUsage.value = normalizeLiveUsage(dailyUsage.value);
+    if (turnsRemaining.value === 0) {
+      showUsageLimit();
+      return;
+    }
     state.value = "listening";
     startMicrophoneCapture();
     return;
@@ -201,6 +276,19 @@ function handleControlMessage(message: LiveControlMessage) {
   }
   if (message.type === "turn_complete") {
     completeTranscriptTurn();
+    const reportedTurns = message.turns_used || sessionTurnsRecorded.value + 1;
+    const newTurns = Math.max(0, reportedTurns - sessionTurnsRecorded.value);
+    sessionTurnsRecorded.value = Math.max(sessionTurnsRecorded.value, reportedTurns);
+    dailyUsage.value = recordLiveTurns(
+      dailyUsage.value,
+      newTurns,
+      serverTurnLimit.value
+    );
+    if (turnsRemaining.value === 0) showUsageLimit();
+    return;
+  }
+  if (message.type === "limit_reached") {
+    showUsageLimit();
     return;
   }
   if (message.type === "error") {
@@ -222,6 +310,12 @@ function handleControlMessage(message: LiveControlMessage) {
 
 async function startConversation() {
   if (active.value) return;
+  emit("tried");
+  dailyUsage.value = normalizeLiveUsage(dailyUsage.value);
+  if (turnsRemaining.value === 0) {
+    showUsageLimit();
+    return;
+  }
   errorMessage.value = "";
   errorCode.value = "";
   errorDetail.value = "";
@@ -229,6 +323,9 @@ async function startConversation() {
   errorRetryable.value = false;
   transcript.value = "";
   photoUrl.value = "";
+  limitMessage.value = "";
+  sessionTurnsRecorded.value = 0;
+  closeWhenPlaybackEnds = false;
   beginTranscriptSession();
   state.value = "connecting";
 
@@ -275,7 +372,11 @@ async function startConversation() {
       state.value = "error";
     };
     socket.onclose = () => {
-      if (state.value !== "error") state.value = "idle";
+      if (state.value !== "error" && state.value !== "limit") state.value = "idle";
+      if (state.value === "limit" && playbackSources.size > 0) {
+        stopMicrophoneCapture();
+        return;
+      }
       cleanupMedia();
     };
   } catch (cause) {
@@ -287,14 +388,7 @@ async function startConversation() {
 }
 
 function cleanupMedia() {
-  captureProcessor?.disconnect();
-  microphoneSource?.disconnect();
-  silentGain?.disconnect();
-  captureProcessor = null;
-  microphoneSource = null;
-  silentGain = null;
-  microphoneStream?.getTracks().forEach((track) => track.stop());
-  microphoneStream = null;
+  stopMicrophoneCapture();
   stopPlayback();
   if (audioContext) void audioContext.close();
   audioContext = null;
@@ -310,6 +404,8 @@ function stopConversation(clearError = true) {
   activeTool.value = "";
   transcript.value = "";
   photoUrl.value = "";
+  limitMessage.value = "";
+  closeWhenPlaybackEnds = false;
   state.value = "idle";
   if (clearError) {
     errorMessage.value = "";
@@ -334,23 +430,28 @@ onBeforeUnmount(() => stopConversation());
 </script>
 
 <template>
-  <UButton
-    icon="i-lucide-mic"
-    type="button"
-    :aria-label="text.liveMode"
-    :title="text.liveMode"
-    :color="active ? 'primary' : 'neutral'"
-    :variant="active ? 'soft' : 'ghost'"
-    size="sm"
-    @click="toggleConversation"
-  />
+  <span class="inline-flex">
+    <UTooltip :text="buttonTooltip">
+      <UButton
+        icon="i-lucide-mic"
+        type="button"
+        :aria-label="buttonTooltip"
+        :title="buttonTooltip"
+        :color="active ? 'primary' : 'neutral'"
+        :variant="active ? 'soft' : 'ghost'"
+        :class="{ 'live-trigger--pulsing': pulse && turnsRemaining > 0 }"
+        size="sm"
+        @click="toggleConversation"
+      />
+    </UTooltip>
+  </span>
 
   <Teleport to="body">
     <Transition name="live-panel">
       <aside
         v-if="panelVisible"
         class="live-conversation-panel"
-        :role="state === 'error' ? 'alert' : 'status'"
+        :role="state === 'error' || state === 'limit' ? 'alert' : 'status'"
         aria-live="polite"
       >
         <div class="live-orb" :class="`live-orb--${state}`" aria-hidden="true">
@@ -363,8 +464,8 @@ onBeforeUnmount(() => stopConversation());
           <p v-if="transcript" class="mt-1 truncate text-xs text-(--django-muted)">
             {{ transcript }}
           </p>
-          <p v-else-if="state !== 'error'" class="mt-1 text-xs text-(--django-muted)">
-            {{ text.liveHint }}
+          <p v-else-if="state !== 'error' && state !== 'limit'" class="mt-1 text-xs text-(--django-muted)">
+            {{ text.liveHint }} {{ remainingLabel }}
           </p>
           <details v-if="state === 'error' && (errorCode || errorDetail)" class="mt-2 text-xs text-(--django-muted)">
             <summary class="cursor-pointer font-medium">{{ text.liveTechnicalDetails }}</summary>
@@ -374,7 +475,7 @@ onBeforeUnmount(() => stopConversation());
           </details>
         </div>
         <UButton
-          v-if="state !== 'error'"
+          v-if="state !== 'error' && state !== 'limit'"
           icon="i-lucide-phone-off"
           :aria-label="text.liveStop"
           color="error"
@@ -382,7 +483,7 @@ onBeforeUnmount(() => stopConversation());
           size="sm"
           @click="() => stopConversation()"
         />
-        <div v-else class="flex items-center gap-1">
+        <div v-else-if="state === 'error'" class="flex items-center gap-1">
           <UButton
             v-if="errorRetryable"
             icon="i-lucide-refresh-cw"
@@ -402,6 +503,15 @@ onBeforeUnmount(() => stopConversation());
             @click="() => stopConversation()"
           />
         </div>
+        <UButton
+          v-else
+          icon="i-lucide-x"
+          :aria-label="text.liveClose"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          @click="() => stopConversation()"
+        />
         <div v-if="photoUrl" class="flex w-full items-center gap-3 rounded-[5px] bg-(--django-surface-soft) p-2">
           <img :src="photoUrl" :alt="text.liveCandidatePhoto" class="size-14 rounded-[5px] object-cover" />
           <p class="text-xs text-(--django-copy)">{{ text.liveCandidatePhoto }}</p>
@@ -433,6 +543,10 @@ onBeforeUnmount(() => stopConversation());
   backdrop-filter: blur(16px);
 }
 
+.live-trigger--pulsing {
+  animation: live-trigger-pulse 2.2s ease-in-out infinite;
+}
+
 .live-orb {
   display: flex;
   width: 3.25rem;
@@ -459,11 +573,17 @@ onBeforeUnmount(() => stopConversation());
 .live-orb span:nth-child(4) { animation-delay: 160ms; }
 .live-orb span:nth-child(3) { animation-delay: 320ms; }
 .live-orb--connecting span { animation-duration: 1.6s; }
-.live-orb--error { background: var(--color-django-burgundy); }
+.live-orb--error,
+.live-orb--limit { background: var(--color-django-burgundy); }
 
 @keyframes live-wave {
   from { transform: scaleY(0.55); opacity: 0.65; }
   to { transform: scaleY(2.1); opacity: 1; }
+}
+
+@keyframes live-trigger-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(229 109 88 / 0); }
+  50% { transform: scale(1.08); box-shadow: 0 0 0 7px rgb(229 109 88 / 14%); }
 }
 
 .live-panel-enter-active,
@@ -473,5 +593,6 @@ onBeforeUnmount(() => stopConversation());
 
 @media (prefers-reduced-motion: reduce) {
   .live-orb span { animation: none; }
+  .live-trigger--pulsing { animation: none; }
 }
 </style>

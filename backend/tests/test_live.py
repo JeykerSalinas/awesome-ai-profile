@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from services.live_service import (
     LiveServiceError,
+    _relay_gemini_output,
     _send_transcription,
     build_live_config,
     describe_live_error,
@@ -29,6 +30,12 @@ class LiveConfigurationTests(unittest.TestCase):
         )
         search_schema = next(item for item in declarations if item.name == "search_documents")
         self.assertIn("query", search_schema.parameters_json_schema["required"])
+
+    def test_live_turn_limit_defaults_to_two(self) -> None:
+        from settings import Settings
+
+        settings = Settings(_env_file=None)
+        self.assertEqual(settings.gemini_live_max_turns, 2)
 
     def test_live_tool_declarations_reuse_langchain_schemas(self) -> None:
         config = build_live_tool_config(build_live_tools())
@@ -77,6 +84,35 @@ class LiveTranscriptionTests(unittest.IsolatedAsyncioTestCase):
                 "text": "",
                 "finished": True,
             }
+        )
+
+    async def test_closes_live_relay_after_two_completed_turns(self) -> None:
+        websocket = SimpleNamespace(send_json=AsyncMock(), send_bytes=AsyncMock())
+
+        async def receive():
+            for _ in range(2):
+                yield SimpleNamespace(
+                    data=None,
+                    tool_call=None,
+                    go_away=None,
+                    server_content=SimpleNamespace(
+                        interrupted=False,
+                        input_transcription=None,
+                        output_transcription=None,
+                        turn_complete=True,
+                    ),
+                )
+
+        session = SimpleNamespace(receive=receive)
+        await _relay_gemini_output(websocket, session, {}, 2)
+
+        self.assertEqual(
+            [call.args[0] for call in websocket.send_json.await_args_list],
+            [
+                {"type": "turn_complete", "turns_used": 1, "turns_remaining": 1},
+                {"type": "turn_complete", "turns_used": 2, "turns_remaining": 0},
+                {"type": "limit_reached", "max_turns": 2},
+            ],
         )
 
 
