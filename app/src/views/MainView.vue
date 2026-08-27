@@ -5,10 +5,15 @@ import { useDark, useEventListener, useStorage } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
 
 import ChatMessageContent from "@/components/chat/ChatMessageContent.vue";
+import LiveConversation from "@/components/chat/LiveConversation.vue";
 import TechnologyTourHost from "@/components/tour/TechnologyTourHost.vue";
 import TechnologyTourLauncher from "@/components/tour/TechnologyTourLauncher.vue";
 import { useLocale } from "@/composables/useLocale";
 import { provideFeatureDiscovery } from "@/composables/useFeatureDiscovery";
+import {
+  upsertLiveTranscript,
+  type LiveTranscriptUpdate,
+} from "@/features/live/transcript";
 import type { ProfileMessage } from "@/types/chat";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
@@ -29,6 +34,8 @@ const requestDocumentIds = ref<string[]>([]);
 const uploadError = ref("");
 const isDark = useDark();
 const hasSeenTour = useStorage("django-tour-seen", false);
+const hasCompletedTour = useStorage("django-tour-completed", false);
+const hasTriedLivePrompt = useStorage("django-live-prompt-seen", false);
 const hasInteractedSinceLoad = ref(false);
 const { locale, text } = useLocale();
 const suggestionIcons = [
@@ -44,6 +51,9 @@ const suggestions = computed(() =>
 );
 const shouldPulseTourLauncher = computed(
   () => !hasSeenTour.value && !hasInteractedSinceLoad.value
+);
+const shouldPulseLive = computed(
+  () => hasCompletedTour.value && !hasTriedLivePrompt.value
 );
 
 const {
@@ -68,6 +78,28 @@ provideFeatureDiscovery(messages);
 const hasMessages = computed(() => messages.value.length > 0);
 const isUploading = computed(
   () => composerDocument.value?.status === "uploading"
+);
+const liveDocumentIds = computed(() => {
+  const document = composerDocument.value;
+  return document?.status === "ready" && document.serverId ? [document.serverId] : [];
+});
+const liveHistory = computed(() =>
+  messages.value
+    .map((message) => ({
+      role: message.role,
+      content: message.parts
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("\n")
+        .trim()
+        .slice(-4000),
+    }))
+    .filter(
+      (message): message is { role: "user" | "assistant"; content: string } =>
+        (message.role === "user" || message.role === "assistant") &&
+        Boolean(message.content)
+    )
+    .slice(-20)
 );
 
 async function deleteUploadedDocument(documentId: string) {
@@ -137,8 +169,20 @@ function markTourAsSeen() {
   stopTourPulse();
 }
 
+function markTourAsCompleted() {
+  hasCompletedTour.value = true;
+}
+
+function markLivePromptAsSeen() {
+  hasTriedLivePrompt.value = true;
+}
+
 function respondToApproval(approvalId: string, approved: boolean) {
   void addToolApprovalResponse({ id: approvalId, approved });
+}
+
+function addLiveTranscript(update: LiveTranscriptUpdate) {
+  messages.value = upsertLiveTranscript(messages.value, update);
 }
 
 async function uploadDocument(event: Event) {
@@ -481,6 +525,16 @@ useEventListener(window, "keydown", stopTourPulse);
                   size="sm"
                   @click="fileInput?.click()"
                 />
+                <span data-tour="live" class="inline-flex">
+                  <LiveConversation
+                    :api-base-url="apiBaseUrl"
+                    :document-ids="liveDocumentIds"
+                    :history="liveHistory"
+                    :pulse="shouldPulseLive"
+                    @transcript="addLiveTranscript"
+                    @tried="markLivePromptAsSeen"
+                  />
+                </span>
                 <UChatPromptSubmit
                   :status="status"
                   color="primary"
@@ -504,6 +558,7 @@ useEventListener(window, "keydown", stopTourPulse);
       ref="technologyTour"
       v-model:draft="input"
       @opened="markTourAsSeen"
+      @completed="markTourAsCompleted"
     />
   </main>
 </template>

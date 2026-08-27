@@ -81,6 +81,8 @@ test('explanations stay local and MainView only composes the feature', () => {
   const component = readFileSync(new URL('../src/components/chat/FeatureExplainer.vue', import.meta.url), 'utf8')
   for (const forbidden of ['fetch(', 'sendMessage(', 'v-html', 'localStorage']) assert.ok(!component.includes(forbidden))
   for (const required of ['aria-expanded', 'aria-controls', 'role="region"', 'type="button"']) assert.ok(component.includes(required))
+  assert.ok(component.includes('feature-button--pulsing'))
+  assert.ok(component.includes('markSeen()'))
   const view = readFileSync(new URL('../src/views/MainView.vue', import.meta.url), 'utf8')
   assert.ok(view.includes('provideFeatureDiscovery(messages)'))
   assert.ok(!view.includes('ChromaDB'))
