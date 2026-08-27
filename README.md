@@ -10,7 +10,9 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 
 - Responsive recruiter-facing chat built with **Nuxt UI**, **Vue 3**, **TypeScript** and **Tailwind CSS**.
 - AI SDK for Vue (`@ai-sdk/vue`) with streamed responses, retry, cancellation and in-session conversation history.
-- FastAPI backend that implements the AI SDK UI Message Stream Protocol over **HTTP/SSE**; WebSockets and a Nuxt server are not required.
+- FastAPI backend that implements the written chat with the AI SDK UI Message Stream Protocol over **HTTP/SSE**; a Nuxt server is not required.
+- Optional live voice mode powered by **Gemini 2.5 Flash Native Audio**, with microphone streaming, native spoken responses, interruption support and a lightweight animated call panel.
+- A server-side FastAPI WebSocket bridge for live audio, keeping `GOOGLE_API_KEY`, professional context, tool execution and scoped RAG access in the backend.
 - Gemini integration through LangChain, including real agent tool calling.
 - A `get_candidate_photo` tool whose result appears inline as a custom photo card.
 - Curated professional knowledge covering Jeyker's profile, employers, education, skills and projects.
@@ -60,6 +62,8 @@ The implementation uses a lazy-loaded Vue component, native modal dialog semanti
 flowchart TD
     Recruiter[Recruiter] --> Frontend[Vue 3 + Nuxt UI]
     Frontend -->|AI SDK over HTTP/SSE| API[FastAPI chat API]
+    Frontend -->|PCM audio over WebSocket| LiveAPI[FastAPI Live bridge]
+    LiveAPI -->|Gemini Live session| Gemini
     API --> Agent[LangChain agent]
     Agent --> Gemini[Google Gemini]
     Agent --> Knowledge[Curated professional knowledge]
@@ -86,7 +90,7 @@ flowchart TD
 - Typed custom renderers for text, profile photos, technology lists, project cards and approval requests.
 - English/Spanish localization with automatic detection and manual selection.
 
-The project uses Nuxt UI as a Vue component library. It does **not** require Nuxt.js, Nitro, a hosted chat backend or WebSockets.
+The project uses Nuxt UI as a Vue component library. It does **not** require Nuxt.js, Nitro or a hosted chat backend. Written chat uses HTTP/SSE; only the optional real-time voice session uses WebSockets.
 
 ### Backend and AI
 
@@ -96,6 +100,7 @@ The project uses Nuxt UI as a Vue component library. It does **not** require Nux
 - `POST /documents` for text-based PDF upload, chunking and semantic indexing.
 - `DELETE /documents/{document_id}` to immediately discard an uploaded document's in-memory chunks.
 - `GET /health` for a basic health check.
+- `WS /live/ws` for bidirectional 16 kHz microphone audio and 24 kHz Gemini audio responses.
 - LangChain agent backed by Google Gemini.
 - English-language JSON/Markdown knowledge files loaded by typed profile and experience tools.
 - Bilingual keyword search for professional experience and projects.
@@ -104,6 +109,7 @@ The project uses Nuxt UI as a Vue component library. It does **not** require Nux
 - Locale-aware system prompts that translate verified facts into English or Spanish.
 - Typed streaming events and custom candidate-photo message parts.
 - Environment-based configuration for the model API key, CORS and deployment settings.
+- Gemini Live tool declarations backed by the same `get_profile_section`, `search_experience`, `get_candidate_photo` and scoped `search_documents` implementations as written chat.
 
 The current agent uses LangChain's `create_agent`. An explicitly modeled LangGraph workflow, provider switching, durable agent state and approval-gated side effects are future improvements rather than current capabilities.
 
@@ -158,6 +164,24 @@ Embedding calls consume the configured Google API quota. Each unchanged bundled 
 
 AWS remains an alternative for future experimentation, but Azure is the deployment platform represented by the current repository.
 
+## Live voice mode
+
+Select the microphone button beside the attachment control and grant browser microphone access. The browser converts microphone frames to mono 16-bit PCM at 16 kHz and sends them to FastAPI. FastAPI opens the Gemini Live session with the API key held server-side, relays native 24 kHz audio responses, executes tool calls and returns public status/transcription events to the interface.
+
+The model defaults to `gemini-2.5-flash-native-audio-preview-12-2025`. The model and voice can be changed without code changes through `GEMINI_LIVE_MODEL` and `GEMINI_LIVE_VOICE`. Voice mode follows the selected English/Spanish locale, receives the recent written conversation as an initial context prefill and can search an attached temporary PDF when that document is present before the live session begins.
+
+Browser microphone access requires HTTPS in production or localhost in development. The deployed backend must accept WebSocket upgrades, and its `CORS_ALLOW_ORIGINS` value must include the exact frontend origin. Audio-only Live API sessions are currently limited by the provider; reconnect to begin a new session after one ends.
+
+The public demo defaults to two completed voice turns per browser per local calendar day. The frontend records that lightweight allowance locally and the backend independently closes every Live WebSocket after `GEMINI_LIVE_MAX_TURNS` responses. This prevents accidental long-running sessions, but it is not a security boundary: strict quota enforcement would require authenticated users or a trusted server-side rate limiter.
+
+If Gemini closes a session with WebSocket code `1011`, run the diagnostic from the repository root:
+
+```bash
+make live-diagnose
+```
+
+It first opens a minimal native-audio session and then repeats the test with the profile agent tools enabled. If the minimal test fails, the failure is between the configured Google project and Gemini Live. If only the tools test fails, inspect the tool declarations or tool-call handling. The command reads the existing `GOOGLE_API_KEY`, `GEMINI_LIVE_MODEL`, and `GEMINI_LIVE_VOICE` values from `backend/.env`; it never prints the API key.
+
 ## Versioning and releases
 
 This project follows semantic versioning (`MAJOR.MINOR.PATCH`). The release prepared by this branch is **0.3.0**, adding the guided technology tour, observable agent activity and contextual feature explanations to 0.2.0.
@@ -175,8 +199,18 @@ The application version is recorded in `app/package.json` and `app/package-lock.
 Create the local environment files from the provided examples, configure `GOOGLE_API_KEY`, then use the Makefile targets:
 
 ```bash
+cp backend/.env.example backend/.env
+# Edit backend/.env and replace GOOGLE_API_KEY with your existing Google API key.
 make install
 make dev
+```
+
+`make install` installs both `google-genai==2.19.0` for the FastAPI Live connection and the existing frontend dependencies. No additional API key or browser-side secret is needed. The optional defaults in `backend/.env` are:
+
+```dotenv
+GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025
+GEMINI_LIVE_VOICE=Kore
+GEMINI_LIVE_MAX_TURNS=2
 ```
 
 Useful commands:
@@ -260,6 +294,8 @@ Checked items correspond to functionality present in the repository; unchecked i
 - [x] Integrate Vue `useChat` with the existing FastAPI backend.
 - [x] Connect the LangChain agent to Google Gemini.
 - [x] Keep conversation history during the active chat session.
+- [x] Add native real-time voice conversation through Gemini Live and a FastAPI WebSocket bridge.
+- [x] Reuse professional context, agent tools and session-scoped RAG in voice mode.
 - [x] Support cancellation, retry and structured streaming errors.
 - [x] Render typed custom message parts and profile-photo cards.
 - [x] Add English/Spanish localization with browser detection and manual switching.
@@ -381,7 +417,7 @@ Only after the grounded recruiter experience and controlled tools work end to en
 | Vue / TypeScript | Nuxt UI recruiter chat, typed message parts and responsive UI | Component and end-to-end tests |
 | AI application engineering | AI SDK streaming, Gemini, LangChain and source-grounded professional answers | Semantic retrieval and model evaluations |
 | Tool calling | Profile search, verified knowledge sections and inline photo rendering | Recruiter contact and approval-gated tools |
-| APIs | FastAPI JSON/SSE endpoints, Pydantic validation and health checks | API integration tests and rate limiting |
+| APIs | FastAPI JSON/SSE/WebSocket endpoints, Pydantic validation and health checks | API integration tests and rate limiting |
 | Testing | Backend unit tests and frontend production type checks | CI test automation, E2E and AI evals |
 | Docker / Azure | Backend Dockerfile, ACR/Container Apps commands and Static Web Apps | Automated backend delivery and monitoring |
 | CI/CD | GitHub Actions frontend deployment from `main` | Full frontend/backend quality gates |

@@ -42,6 +42,20 @@ class Settings(BaseSettings):
     rag_result_limit: int = Field(default=5, validation_alias=AliasChoices("RAG_RESULT_LIMIT"))
     max_pdf_size_mb: int = Field(default=10, validation_alias=AliasChoices("MAX_PDF_SIZE_MB"))
     upload_ttl_minutes: int = Field(default=30, validation_alias=AliasChoices("UPLOAD_TTL_MINUTES"))
+    gemini_live_model: str = Field(
+        default="gemini-3.1-flash-live-preview",
+        validation_alias=AliasChoices("GEMINI_LIVE_MODEL"),
+    )
+    gemini_live_voice: str = Field(
+        default="Kore",
+        validation_alias=AliasChoices("GEMINI_LIVE_VOICE"),
+    )
+    gemini_live_max_turns: int = Field(
+        default=2,
+        ge=1,
+        le=10,
+        validation_alias=AliasChoices("GEMINI_LIVE_MAX_TURNS"),
+    )
 
 
 @lru_cache

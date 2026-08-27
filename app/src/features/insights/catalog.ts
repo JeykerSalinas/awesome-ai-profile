@@ -16,6 +16,24 @@ interface Feature {
 }
 
 export const features = {
+  live: {
+    icon: 'i-lucide-audio-waveform', technologies: ['Gemini Live', 'WebSocket', 'PCM audio', 'FastAPI'],
+    source: 'backend/services/live_service.py',
+    es: {
+      title: 'Conversación de voz nativa',
+      why: 'La voz no se convierte primero en un chat de texto: Gemini recibe audio continuo y responde con audio nativo de baja latencia.',
+      how: 'El navegador envía PCM de 16 kHz por WebSocket a FastAPI. El backend conserva la API key, abre la sesión Live, ejecuta las mismas tools y devuelve audio PCM de 24 kHz.',
+      caveat: 'Gemini Live sigue siendo una API preview. Para controlar el consumo, el demo permite dos turnos de voz al día por navegador y el backend corta cada WebSocket después de dos respuestas. Sin autenticación, esto reduce el uso casual pero no constituye una cuota antiabuso estricta.',
+      flow: ['Micrófono y PCM', 'FastAPI y Gemini Live', 'Audio nativo y tools'],
+    },
+    en: {
+      title: 'Native voice conversation',
+      why: 'Voice is not first converted into a text chat: Gemini receives continuous audio and responds with low-latency native audio.',
+      how: 'The browser sends 16 kHz PCM over WebSocket to FastAPI. The backend protects the API key, opens the Live session, runs the same tools and returns 24 kHz PCM audio.',
+      caveat: 'Gemini Live remains a preview API. To control usage, the demo allows two voice turns per browser each day and the backend closes each WebSocket after two responses. Without authentication, this limits casual use but is not a strict anti-abuse quota.',
+      flow: ['Microphone and PCM', 'FastAPI and Gemini Live', 'Native audio and tools'],
+    },
+  },
   tools: {
     icon: 'i-lucide-workflow', technologies: ['Gemini', 'LangChain', 'Python'],
     source: 'backend/agents/tools.py',

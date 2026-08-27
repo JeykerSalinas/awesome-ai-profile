@@ -52,6 +52,8 @@ test('MainView composes tour components without owning presentation or lifecycle
     'utf8',
   )
   assert.ok(host.includes('defineExpose({ openTour })'))
+  assert.ok(host.includes("emit('completed')"))
+  assert.ok(host.includes('@complete="completeTour"'))
   assert.ok(!host.includes('sendMessage'))
   const launcher = readFileSync(
     new URL(
@@ -64,6 +66,20 @@ test('MainView composes tour components without owning presentation or lifecycle
   assert.ok(launcher.includes('storyCopy[locale.value]'))
   assert.ok(launcher.includes('copy.launch'))
   assert.ok(launcher.includes("emit('open')"))
+})
+
+test('finishing the tour prompts live mode only until the visitor tries it', () => {
+  const view = readFileSync(
+    new URL('../src/views/MainView.vue', import.meta.url),
+    'utf8',
+  )
+  for (const behavior of [
+    'django-tour-completed',
+    'django-live-prompt-seen',
+    ':pulse="shouldPulseLive"',
+    '@tried="markLivePromptAsSeen"',
+    '@completed="markTourAsCompleted"',
+  ]) assert.ok(view.includes(behavior), behavior)
 })
 
 test('every chapter has a unique ID, a real UI anchor and an existing source file', () => {
@@ -86,8 +102,8 @@ test('every chapter has a unique ID, a real UI anchor and an existing source fil
   }
 })
 
-test('all seven chapters and every control have matching English and Spanish content', () => {
-  assert.equal(chapters.length, 7)
+test('all eight chapters and every control have matching English and Spanish content', () => {
+  assert.equal(chapters.length, 8)
   assert.deepEqual(
     Object.keys(storyCopy.en).sort(),
     Object.keys(storyCopy.es).sort(),
@@ -107,7 +123,7 @@ test('all seven chapters and every control have matching English and Spanish con
 
 test('chapter navigation clamps at either boundary and handles invalid indexes', () => {
   assert.equal(chapterIndex(-1), 0)
-  assert.equal(chapterIndex(7), 6)
+  assert.equal(chapterIndex(8), 7)
   assert.equal(chapterIndex(2), 2)
   assert.equal(chapterIndex(2.7), 2)
   assert.equal(chapterIndex(NaN), 0)
