@@ -5,6 +5,7 @@ import { useDark, useEventListener, useStorage } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
 
 import ChatMessageContent from "@/components/chat/ChatMessageContent.vue";
+import LiveConversation from "@/components/chat/LiveConversation.vue";
 import TechnologyTourHost from "@/components/tour/TechnologyTourHost.vue";
 import TechnologyTourLauncher from "@/components/tour/TechnologyTourLauncher.vue";
 import { useLocale } from "@/composables/useLocale";
@@ -68,6 +69,28 @@ provideFeatureDiscovery(messages);
 const hasMessages = computed(() => messages.value.length > 0);
 const isUploading = computed(
   () => composerDocument.value?.status === "uploading"
+);
+const liveDocumentIds = computed(() => {
+  const document = composerDocument.value;
+  return document?.status === "ready" && document.serverId ? [document.serverId] : [];
+});
+const liveHistory = computed(() =>
+  messages.value
+    .map((message) => ({
+      role: message.role,
+      content: message.parts
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("\n")
+        .trim()
+        .slice(-4000),
+    }))
+    .filter(
+      (message): message is { role: "user" | "assistant"; content: string } =>
+        (message.role === "user" || message.role === "assistant") &&
+        Boolean(message.content)
+    )
+    .slice(-20)
 );
 
 async function deleteUploadedDocument(documentId: string) {
@@ -480,6 +503,11 @@ useEventListener(window, "keydown", stopTourPulse);
                   variant="ghost"
                   size="sm"
                   @click="fileInput?.click()"
+                />
+                <LiveConversation
+                  :api-base-url="apiBaseUrl"
+                  :document-ids="liveDocumentIds"
+                  :history="liveHistory"
                 />
                 <UChatPromptSubmit
                   :status="status"
