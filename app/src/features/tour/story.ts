@@ -1,7 +1,7 @@
 /** Editorial content only: the tour never calls the chat or document APIs. */
 export type StoryLocale = 'en' | 'es'
 export type StoryTarget =
-  'identity' | 'composer' | 'upload' | 'conversation' | 'preferences' | 'stack'
+  'identity' | 'composer' | 'upload' | 'conversation' | 'preferences' | 'live' | 'stack'
 
 interface ChapterCopy {
   label: string
@@ -173,6 +173,31 @@ export const chapters = [
     },
   },
   {
+    id: 'live',
+    target: 'live',
+    icon: 'i-lucide-audio-waveform',
+    technologies: ['Gemini Live', 'WebSocket', 'Native audio'],
+    source: 'backend/services/live_service.py',
+    en: {
+      label: 'The voice',
+      title: 'The conversation leaves the keyboard.',
+      description:
+        'The microphone opens a real-time voice session where both sides can speak naturally, interrupt and keep the transcript in the same chat history.',
+      detail:
+        'Vue converts microphone frames to 16 kHz PCM and sends them through a FastAPI WebSocket bridge. Gemini returns native 24 kHz audio, transcriptions and tool calls. The public demo allows two voice turns per day in each browser.',
+      flow: ['Microphone PCM', 'Gemini Live + tools', 'Audio and transcript'],
+    },
+    es: {
+      label: 'La voz',
+      title: 'La conversación sale del teclado.',
+      description:
+        'El micrófono abre una sesión de voz en tiempo real donde ambos pueden hablar con naturalidad, interrumpirse y conservar la transcripción en el mismo historial.',
+      detail:
+        'Vue convierte el micrófono a PCM de 16 kHz y lo envía mediante un puente WebSocket en FastAPI. Gemini devuelve audio nativo de 24 kHz, transcripciones y llamadas a tools. El demo público permite dos turnos de voz diarios por navegador.',
+      flow: ['Micrófono PCM', 'Gemini Live + tools', 'Audio y transcripción'],
+    },
+  },
+  {
     id: 'deployment',
     target: 'stack',
     icon: 'i-lucide-cloud',
@@ -204,7 +229,7 @@ export const storyCopy = {
     eyebrow: 'BEHIND THE CHAT',
     launch: 'Why this project is so cool?',
     teaser:
-      'Seven chapters. One conversation. Explore the engineering behind Django.',
+      'Eight chapters. One conversation. Explore the engineering behind Django.',
     duration: 'About 3 minutes',
     close: 'Close tour',
     previous: 'Back',
@@ -226,9 +251,9 @@ export const storyCopy = {
   },
   es: {
     eyebrow: 'DETRÁS DEL CHAT',
-    launch: '¿Por qué esté proyecto es tan genial?',
+    launch: '¿Por qué este proyecto es tan genial?',
     teaser:
-      'Siete capítulos. Una conversación. Explora la ingeniería detrás de Django.',
+      'Ocho capítulos. Una conversación. Explora la ingeniería detrás de Django.',
     duration: 'Unos 3 minutos',
     close: 'Cerrar recorrido',
     previous: 'Anterior',

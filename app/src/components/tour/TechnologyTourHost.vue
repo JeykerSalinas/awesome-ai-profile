@@ -8,7 +8,7 @@ const TechnologyTour = defineAsyncComponent(
   () => import('./TechnologyTour.vue'),
 )
 const draft = defineModel<string>('draft', { required: true })
-const emit = defineEmits<{ opened: [] }>()
+const emit = defineEmits<{ opened: []; completed: [] }>()
 const { locale } = useLocale()
 const open = ref(false)
 const loaded = ref(false)
@@ -24,6 +24,7 @@ defineExpose({ openTour })
 
 async function prepareQuestion(question: string) {
   open.value = false
+  emit('completed')
   draft.value = appendTourQuestion(draft.value, question)
   // Clear first so repeated preparations are announced too.
   announcement.value = ''
@@ -33,6 +34,11 @@ async function prepareQuestion(question: string) {
     .querySelector<HTMLTextAreaElement>('[data-tour="composer"] textarea')
     ?.focus()
 }
+
+function completeTour() {
+  open.value = false
+  emit('completed')
+}
 </script>
 
 <template>
@@ -41,6 +47,7 @@ async function prepareQuestion(question: string) {
     v-if="loaded"
     :open="open"
     @close="open = false"
+    @complete="completeTour"
     @prepare-question="prepareQuestion"
   />
 </template>
