@@ -15,6 +15,7 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - A server-side FastAPI WebSocket bridge for live audio, keeping `GOOGLE_API_KEY`, professional context, tool execution and scoped RAG access in the backend.
 - Gemini integration through LangChain, including real agent tool calling.
 - A `get_candidate_photo` tool whose result appears inline as a custom photo card.
+- A read-only `get_contact_details` tool that shares Jeyker's authorized public contact details on request.
 - Curated professional knowledge covering Jeyker's profile, employers, education, skills and projects.
 - `get_profile_section` and `search_experience` tools with English/Spanish keyword retrieval.
 - Answers grounded in verified knowledge files, with source references rendered directly in the chat.
@@ -40,9 +41,9 @@ A recruiter should eventually be able to ask:
 - What experience does he have with RAG, LLM applications and full-stack development?
 - How was this project built and deployed?
 - Can you show his profile photo, relevant projects or supporting sources?
-- Can you send Jeyker a message after obtaining explicit approval?
+- How can I contact Jeyker?
 
-The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources and execute the photo tool. Durable cloud storage and recruiter contact workflows remain planned.
+The current assistant can stream answers, semantically search curated professional records and uploaded PDFs, cite its knowledge sources and execute read-only profile, photo and contact tools. It may offer Jeyker's public contact details after detecting concrete professional interest; it does not send messages or email.
 
 ## Current architecture
 
@@ -74,6 +75,7 @@ flowchart TD
     Gemini -->|Embeddings| VisitorStore
     Frontend -->|Upload PDF| API
     Agent --> Photo[get_candidate_photo]
+    Agent --> Contact[get_contact_details]
     Knowledge -->|Verified source references| Frontend
     Photo -->|Custom message part| Frontend
     GitHub[GitHub Actions] --> AzureWeb[Azure Static Web Apps]
@@ -109,7 +111,7 @@ The project uses Nuxt UI as a Vue component library. It does **not** require Nux
 - Locale-aware system prompts that translate verified facts into English or Spanish.
 - Typed streaming events and custom candidate-photo message parts.
 - Environment-based configuration for the model API key, CORS and deployment settings.
-- Gemini Live tool declarations backed by the same `get_profile_section`, `search_experience`, `get_candidate_photo` and scoped `search_documents` implementations as written chat.
+- Gemini Live tool declarations backed by the same `get_profile_section`, `search_experience`, `get_candidate_photo`, `get_contact_details` and scoped `search_documents` implementations as written chat.
 
 The current agent uses LangChain's `create_agent`. An explicitly modeled LangGraph workflow, provider switching, durable agent state and approval-gated side effects are future improvements rather than current capabilities.
 
@@ -332,7 +334,7 @@ Checked items correspond to functionality present in the repository; unchecked i
 - [ ] Model durable agent state explicitly.
 - [x] Implement `search_experience`.
 - [x] Implement `get_profile_section`.
-- [ ] Implement `create_contact_request`.
+- [x] Implement read-only `get_contact_details`.
 - [ ] Require and enforce approval before side-effecting tools run.
 - [ ] Add tool authorization, rate limits and audit logs.
 - [ ] Test invalid, malicious and denied tool requests.
@@ -406,7 +408,7 @@ Only after the grounded recruiter experience and controlled tools work end to en
 - [ ] Experiment with local/open-source models.
 - [ ] Compare RAG configurations.
 - [ ] Evaluate MCP integrations where they solve a concrete problem.
-- [ ] Complete human-in-the-loop workflows for recruiter contact actions.
+- [ ] Add human-in-the-loop only when a future feature requires an external side effect.
 - [ ] Add automated prompt-injection and red-team cases.
 - [ ] Evaluate multimodal CV and project inputs.
 
@@ -416,7 +418,7 @@ Only after the grounded recruiter experience and controlled tools work end to en
 | --- | --- | --- |
 | Vue / TypeScript | Nuxt UI recruiter chat, typed message parts and responsive UI | Component and end-to-end tests |
 | AI application engineering | AI SDK streaming, Gemini, LangChain and source-grounded professional answers | Semantic retrieval and model evaluations |
-| Tool calling | Profile search, verified knowledge sections and inline photo rendering | Recruiter contact and approval-gated tools |
+| Tool calling | Profile search, verified knowledge sections, public contact lookup and inline photo rendering | Approval-gated side-effecting tools |
 | APIs | FastAPI JSON/SSE/WebSocket endpoints, Pydantic validation and health checks | API integration tests and rate limiting |
 | Testing | Backend unit tests and frontend production type checks | CI test automation, E2E and AI evals |
 | Docker / Azure | Backend Dockerfile, ACR/Container Apps commands and Static Web Apps | Automated backend delivery and monitoring |
@@ -444,7 +446,7 @@ The project is complete when a recruiter can:
 3. Receive a factual answer grounded in curated professional documents.
 4. Inspect the sources supporting that answer.
 5. Explore projects, technologies and other structured message components.
-6. Send a contact request only after an explicit approval step.
+6. Request and receive Jeyker's authorized public contact details.
 7. Inspect automated tests, AI evaluations and a green CI pipeline.
 8. Understand the Azure deployment architecture and operating costs.
 9. Verify the implementation and engineering decisions in this repository.

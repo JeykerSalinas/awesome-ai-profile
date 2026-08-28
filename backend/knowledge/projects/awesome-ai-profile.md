@@ -13,6 +13,7 @@ The backend has a Dockerfile and deployment commands for Azure Container
 Registry and Azure Container Apps.
 
 This project contains a curated file-based professional knowledge base.
-Vector embeddings, pgvector retrieval, durable conversation persistence and
-approval-gated contact actions are future work and must not be represented as
-already implemented.
+The assistant can share Jeyker's explicitly authorized public contact details
+through a read-only tool. It does not send emails or messages. Vector embeddings,
+pgvector retrieval, durable conversation persistence and approval-gated external
+actions are future work and must not be represented as already implemented.

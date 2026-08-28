@@ -14,8 +14,10 @@ Knowledge documents are maintained in English. The agent translates verified
 facts into the language selected in the frontend without changing names,
 dates, companies or technologies.
 
-Street addresses, personal phone numbers, email addresses, credentials and
-other sensitive information must never be added to these public files.
+Street addresses, credentials and private personal details must never be added
+to these files. Contact details explicitly authorized for public sharing live
+separately in `services/public_contact.py` and are exposed only through the
+dedicated read-only tool.
 
 The source CV described Arttac Solutions as a current position, but the owner
 confirmed that the employment ended in May 2026. The curated records use the

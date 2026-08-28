@@ -98,6 +98,19 @@ class AgentActivityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sum(item['type'] == 'image' for item in result), 1)
         self.assertEqual(sum(item['type'] == 'activity' for item in result), 4)
 
+    async def test_exposes_contact_lookup_lifecycle_without_contact_values(self):
+        result = await self.collect([
+            event("on_tool_start", "contact", "get_contact_details"),
+            event(
+                "on_tool_end",
+                "contact",
+                "get_contact_details",
+                output='{"email":"jeyker.salinas13@gmail.com"}',
+            ),
+        ])
+        self.assertEqual([item["type"] for item in result], ["activity", "activity"])
+        self.assertNotIn("jeyker.salinas13", json.dumps(result))
+
     async def test_ignores_unknown_tools_and_malformed_payloads(self):
         for payload in ['not json', '[]', None, {"results": "not a list"}]:
             result = await self.collect([
