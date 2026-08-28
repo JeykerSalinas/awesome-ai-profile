@@ -4,6 +4,10 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
+    log_level: str = Field(
+        default="INFO",
+        validation_alias=AliasChoices("LOG_LEVEL"),
+    )
     backend_host: str = Field(
         default="127.0.0.1",
         validation_alias=AliasChoices("BACKEND_HOST"),
@@ -53,7 +57,7 @@ class Settings(BaseSettings):
     gemini_live_max_turns: int = Field(
         default=2,
         ge=1,
-        le=10,
+        le=100,
         validation_alias=AliasChoices("GEMINI_LIVE_MAX_TURNS"),
     )
 

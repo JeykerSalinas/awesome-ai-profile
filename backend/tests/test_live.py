@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -36,6 +37,14 @@ class LiveConfigurationTests(unittest.TestCase):
 
         settings = Settings(_env_file=None)
         self.assertEqual(settings.gemini_live_max_turns, 2)
+
+    def test_live_turn_limit_accepts_twenty(self) -> None:
+        from settings import Settings
+
+        with patch.dict(os.environ, {"GEMINI_LIVE_MAX_TURNS": "20"}):
+            settings = Settings(_env_file=None)
+
+        self.assertEqual(settings.gemini_live_max_turns, 20)
 
     def test_live_tool_declarations_reuse_langchain_schemas(self) -> None:
         config = build_live_tool_config(build_live_tools())

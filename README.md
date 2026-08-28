@@ -31,6 +31,7 @@ Instead of reading a static résumé, recruiters can talk to Django: an AI assis
 - Contextual EN/ES **Why is this feature so cool?** explanations on first use of eight features; local content with no extra LLM calls.
 - Backend unit tests for request validation, conversation history, stream ordering and provider errors.
 - Azure Static Web Apps deployment through GitHub Actions, plus Docker/Azure Container Apps deployment commands for the backend.
+- Structured, secret-redacted backend logs with request correlation and localized chat failure feedback.
 
 ## Product goal
 
@@ -165,6 +166,16 @@ Embedding calls consume the configured Google API quota. Each unchanged bundled 
 - **Local database groundwork:** Docker Compose can start PostgreSQL, but the application does not yet persist conversations or implement pgvector-based retrieval.
 
 AWS remains an alternative for future experimentation, but Azure is the deployment platform represented by the current repository.
+
+### Observability and failure feedback
+
+Application and request logs are emitted as structured JSON to standard output,
+where Azure Container Apps can stream them live and retain them through Log
+Analytics. Provider failures are classified without exposing credentials or raw
+provider responses to visitors. The written chat displays a localized message,
+whether retrying is appropriate, and a short reference that maps to the backend
+`request_id`. See [the observability guide](docs/observability.md) for commands,
+the error contract, and Log Analytics queries.
 
 ## Live voice mode
 
