@@ -9,6 +9,7 @@ import FeatureDiscoveries from '@/components/chat/FeatureDiscoveries.vue'
 import { useLocale } from '@/composables/useLocale'
 import { renderMarkdown } from '@/utils/chatMarkdown'
 import type { ProfileMessage } from '@/types/chat'
+import { useFeatureDiscovery } from '@/composables/useFeatureDiscovery'
 
 const props = defineProps<{
   message: ProfileMessage
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const { text } = useLocale()
+const discoveredFeatures = useFeatureDiscovery(() => props.message)
 
 const resourceParts = computed(() =>
   props.message.parts.filter(
@@ -38,6 +40,9 @@ const contentParts = computed(() =>
 
 const shouldShowResources = computed(
   () => resourceParts.value.length > 0 && !props.hideResources,
+)
+const shouldShowSupplementary = computed(
+  () => !props.active && (shouldShowResources.value || discoveredFeatures.value.length > 0),
 )
 
 // Recomputed when a photo part arrives, including after streamed text.
@@ -116,36 +121,39 @@ const markdownBaseUrl = typeof window === 'undefined' ? undefined : window.locat
     </template>
 
     <Transition
-      enter-active-class="transition-all duration-200 ease-out"
-      enter-from-class="translate-y-1 opacity-0"
+      enter-active-class="transition-all duration-350 ease-out"
+      enter-from-class="translate-y-1.5 opacity-0"
       enter-to-class="translate-y-0 opacity-100"
       leave-active-class="transition-all duration-150 ease-in"
       leave-from-class="translate-y-0 opacity-100"
       leave-to-class="translate-y-1 opacity-0"
     >
-      <div v-if="shouldShowResources" class="flex flex-wrap gap-2 pt-1">
-        <template v-for="(part, index) in resourceParts" :key="`${props.message.id}-resource-${index}`">
-          <div
-            v-if="part.type === 'data-source'"
-            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
-          >
-            <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
-            <span class="font-medium">{{ text.verifiedSource }}:</span>
-            <span class="truncate">{{ part.data.path }}</span>
-          </div>
+      <div v-if="shouldShowSupplementary" class="space-y-2">
+        <div v-if="shouldShowResources" class="flex flex-wrap gap-2 pt-1">
+          <template v-for="(part, index) in resourceParts" :key="`${props.message.id}-resource-${index}`">
+            <div
+              v-if="part.type === 'data-source'"
+              class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+            >
+              <UIcon name="i-lucide-file-check-2" class="size-4 shrink-0 text-primary" />
+              <span class="font-medium">{{ text.verifiedSource }}:</span>
+              <span class="truncate">{{ part.data.path }}</span>
+            </div>
 
-          <div
-            v-else-if="part.type === 'data-user-document'"
-            class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
-          >
-            <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-primary" />
-            <span class="font-medium">{{ text.uploadedDocument }}:</span>
-            <span class="truncate">{{ part.data.filename }}</span>
-          </div>
-        </template>
+            <div
+              v-else-if="part.type === 'data-user-document'"
+              class="inline-flex max-w-full items-center gap-2 rounded-full border border-(--django-border) bg-(--django-surface-soft) px-3 py-1.5 text-xs text-(--django-copy)"
+            >
+              <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-primary" />
+              <span class="font-medium">{{ text.uploadedDocument }}:</span>
+              <span class="truncate">{{ part.data.filename }}</span>
+            </div>
+          </template>
+        </div>
+
+        <FeatureDiscoveries :message="message" :visible="!active" />
       </div>
     </Transition>
-    <FeatureDiscoveries :message="message" />
   </div>
 </template>
 
