@@ -15,6 +15,7 @@ import {
   type LiveTranscriptUpdate,
 } from "@/features/live/transcript";
 import type { ProfileMessage } from "@/types/chat";
+import { parseChatError } from "@/utils/chatError";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const input = ref("");
@@ -63,6 +64,7 @@ const {
   sendMessage,
   regenerate,
   stop,
+  clearError,
   addToolApprovalResponse,
 } = useChat<ProfileMessage>({
   transport: new DefaultChatTransport<ProfileMessage>({
@@ -76,6 +78,16 @@ const {
 
 provideFeatureDiscovery(messages);
 const hasMessages = computed(() => messages.value.length > 0);
+const chatErrorFeedback = computed(() =>
+  error.value ? parseChatError(error.value.message, locale.value) : null
+);
+const chatErrorDescription = computed(() => {
+  const feedback = chatErrorFeedback.value;
+  if (!feedback) return "";
+  return feedback.reference
+    ? `${feedback.message} ${text.value.chatErrorReference}: ${feedback.reference}.`
+    : feedback.message;
+});
 const isUploading = computed(
   () => composerDocument.value?.status === "uploading"
 );
@@ -430,13 +442,32 @@ useEventListener(window, "keydown", stopTourPulse);
           class="sticky bottom-0 z-10 mx-auto w-full max-w-4xl bg-linear-to-b from-(--django-surface) via-(--django-surface)/50 to-(--django-surface)/0 px-4 pb-2 pt-6 backdrop-blur-[3px] sm:px-8 sm:pb-2"
         >
           <UAlert
-            v-if="error"
+            v-if="chatErrorFeedback"
             color="error"
             variant="soft"
             icon="i-lucide-circle-alert"
-            :description="error.message"
+            :title="text.chatErrorTitle"
+            :description="chatErrorDescription"
             class="mb-3"
-          />
+          >
+            <template #actions>
+              <UButton
+                v-if="chatErrorFeedback.retryable"
+                size="xs"
+                color="error"
+                variant="soft"
+                :label="text.chatErrorRetry"
+                @click="regenerate()"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :label="text.chatErrorDismiss"
+                @click="clearError()"
+              />
+            </template>
+          </UAlert>
           <UAlert
             v-if="uploadError"
             color="error"

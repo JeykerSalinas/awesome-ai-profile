@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from schemas.chat import ChatStreamRequest
 from services.ai_sdk_stream import stream_ui_messages
+from services.chat_error_service import ERROR_PREFIX
 
 
 class ChatStreamRequestTests(unittest.TestCase):
@@ -111,7 +112,11 @@ class UIMessageStreamTests(unittest.IsolatedAsyncioTestCase):
         chunks = [chunk async for chunk in stream_ui_messages(None, failing_events())]
         events = [json.loads(chunk.removeprefix("data: ")) for chunk in chunks[:-1]]
 
-        self.assertEqual(events[-1], {"type": "error", "errorText": "The response could not be completed. Please try again."})
+        self.assertEqual(events[-1]["type"], "error")
+        self.assertTrue(events[-1]["errorText"].startswith(ERROR_PREFIX))
+        payload = json.loads(events[-1]["errorText"].removeprefix(ERROR_PREFIX))
+        self.assertEqual(payload["code"], "chat_generation_failed")
+        self.assertEqual(len(payload["reference"]), 12)
         self.assertEqual(chunks[-1], "data: [DONE]\n\n")
 
     async def test_activity_updates_reuse_id_without_splitting_markdown(self) -> None:
