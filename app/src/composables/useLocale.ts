@@ -60,6 +60,21 @@ const translations = {
     liveMicrophoneUnavailable: "This browser cannot access a microphone.",
     liveMicrophoneError: "Microphone access was denied or could not be started.",
     liveCandidatePhoto: "Jeyker's professional profile photo",
+    demoNoticeEyebrow: "Public technology demo",
+    demoNoticeTitle: "Before you try Django",
+    demoNoticePurpose:
+      "This platform is a portfolio demo designed to show the technologies Jeyker works with. It is not a production service.",
+    demoNoticeLimits:
+      "It currently uses free-tier, limited-capacity generative AI services, so responses and live voice availability may be restricted, inaccurate, or interrupted.",
+    demoNoticePrivacy:
+      "Your messages, voice audio, and attached documents are sent to Google Gemini to generate responses. Depending on the service plan and region, the provider may use inputs and outputs to improve its products, and human reviewers may process them under its terms.",
+    demoNoticeWarning:
+      "Do not enter personal, sensitive, confidential, or third-party information.",
+    demoNoticeStorage:
+      "This demo does not persist chat history. Attached PDFs are held temporarily in memory and expire after a short period. Continuing only acknowledges that you have read this notice.",
+    demoNoticeTerms: "Google Gemini API terms",
+    demoNoticePrivacyPolicy: "Google privacy policy",
+    demoNoticeAccept: "I understand and continue",
   },
   es: {
     documentTitle: "Asistente IA",
@@ -118,6 +133,21 @@ const translations = {
     liveMicrophoneUnavailable: "Este navegador no puede acceder al micrófono.",
     liveMicrophoneError: "Se rechazó el acceso al micrófono o no pudo iniciarse.",
     liveCandidatePhoto: "Foto de perfil profesional de Jeyker",
+    demoNoticeEyebrow: "Demo tecnológico público",
+    demoNoticeTitle: "Antes de probar Django",
+    demoNoticePurpose:
+      "Esta plataforma es un demo de portafolio creado para mostrar las tecnologías que domina Jeyker. No es un servicio de producción.",
+    demoNoticeLimits:
+      "Actualmente utiliza servicios gratuitos de IA generativa con capacidad limitada, por lo que las respuestas y la disponibilidad del modo de voz pueden ser restringidas, inexactas o interrumpirse.",
+    demoNoticePrivacy:
+      "Tus mensajes, el audio de voz y los documentos adjuntos se envían a Google Gemini para generar respuestas. Según el plan del servicio y la región, el proveedor puede utilizar las entradas y salidas para mejorar sus productos, y revisores humanos pueden procesarlas conforme a sus términos.",
+    demoNoticeWarning:
+      "No introduzcas información personal, sensible, confidencial ni datos de terceros.",
+    demoNoticeStorage:
+      "Este demo no conserva el historial del chat. Los PDF adjuntos se mantienen temporalmente en memoria y caducan después de un periodo breve. Continuar solo confirma que has leído este aviso.",
+    demoNoticeTerms: "Términos de la API de Google Gemini",
+    demoNoticePrivacyPolicy: "Política de privacidad de Google",
+    demoNoticeAccept: "Entiendo y continuar",
   },
 } as const;
 
