@@ -55,7 +55,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("GEMINI_LIVE_VOICE"),
     )
     gemini_live_max_turns: int = Field(
-        default=2,
+        default=20,
         ge=1,
         le=100,
         validation_alias=AliasChoices("GEMINI_LIVE_MAX_TURNS"),
