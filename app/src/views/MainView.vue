@@ -525,6 +525,16 @@ useEventListener(window, "keydown", stopTourPulse);
             class="hidden"
             @change="uploadDocument"
           />
+          <div data-tour="live" class="mb-2 flex justify-end px-1">
+            <LiveConversation
+              :api-base-url="apiBaseUrl"
+              :document-ids="liveDocumentIds"
+              :history="liveHistory"
+              :pulse="shouldPulseLive"
+              @transcript="addLiveTranscript"
+              @tried="markLivePromptAsSeen"
+            />
+          </div>
           <UChatPrompt
             data-tour="composer"
             v-model="input"
@@ -555,16 +565,6 @@ useEventListener(window, "keydown", stopTourPulse);
                   size="sm"
                   @click="fileInput?.click()"
                 />
-                <span data-tour="live" class="inline-flex">
-                  <LiveConversation
-                    :api-base-url="apiBaseUrl"
-                    :document-ids="liveDocumentIds"
-                    :history="liveHistory"
-                    :pulse="shouldPulseLive"
-                    @transcript="addLiveTranscript"
-                    @tried="markLivePromptAsSeen"
-                  />
-                </span>
                 <UChatPromptSubmit
                   :status="status"
                   color="primary"

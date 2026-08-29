@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
 from services.live_service import (
+    INITIAL_GREETINGS,
     LiveServiceError,
     _relay_gemini_output,
     _send_transcription,
@@ -17,6 +18,16 @@ from services.live_tools_service import build_live_tool_config, build_live_tools
 
 
 class LiveConfigurationTests(unittest.TestCase):
+    def test_initial_greeting_is_short_and_localized(self) -> None:
+        self.assertEqual(
+            INITIAL_GREETINGS["es"],
+            "Hola, soy Django, asistente profesional de Jeyker.",
+        )
+        self.assertEqual(
+            INITIAL_GREETINGS["en"],
+            "Hi, I'm Django, Jeyker's professional assistant.",
+        )
+
     def test_live_session_uses_native_audio_transcription_prompt_and_all_tools(self) -> None:
         settings = SimpleNamespace(gemini_live_voice="Kore")
         with patch("services.live_service.get_settings", return_value=settings):
@@ -32,11 +43,11 @@ class LiveConfigurationTests(unittest.TestCase):
         search_schema = next(item for item in declarations if item.name == "search_documents")
         self.assertIn("query", search_schema.parameters_json_schema["required"])
 
-    def test_live_turn_limit_defaults_to_two(self) -> None:
+    def test_live_turn_limit_defaults_to_twenty(self) -> None:
         from settings import Settings
 
         settings = Settings(_env_file=None)
-        self.assertEqual(settings.gemini_live_max_turns, 2)
+        self.assertEqual(settings.gemini_live_max_turns, 20)
 
     def test_live_turn_limit_accepts_twenty(self) -> None:
         from settings import Settings
@@ -99,7 +110,8 @@ class LiveTranscriptionTests(unittest.IsolatedAsyncioTestCase):
         websocket = SimpleNamespace(send_json=AsyncMock(), send_bytes=AsyncMock())
 
         async def receive():
-            for _ in range(2):
+            # One model turn for the greeting, followed by two visitor turns.
+            for _ in range(3):
                 yield SimpleNamespace(
                     data=None,
                     tool_call=None,
@@ -118,6 +130,41 @@ class LiveTranscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [call.args[0] for call in websocket.send_json.await_args_list],
             [
+                {"type": "turn_complete", "turns_used": 1, "turns_remaining": 1},
+                {"type": "turn_complete", "turns_used": 2, "turns_remaining": 0},
+                {"type": "limit_reached", "max_turns": 2},
+            ],
+        )
+
+    async def test_initial_greeting_does_not_consume_a_visitor_turn(self) -> None:
+        websocket = SimpleNamespace(send_json=AsyncMock(), send_bytes=AsyncMock())
+
+        async def receive():
+            for _ in range(2):
+                yield SimpleNamespace(
+                    data=None,
+                    tool_call=None,
+                    go_away=None,
+                    server_content=SimpleNamespace(
+                        interrupted=False,
+                        input_transcription=None,
+                        output_transcription=None,
+                        turn_complete=True,
+                    ),
+                )
+
+        session = SimpleNamespace(receive=receive)
+        await _relay_gemini_output(websocket, session, {}, 2, uncounted_turns=1)
+
+        self.assertEqual(
+            [call.args[0] for call in websocket.send_json.await_args_list],
+            [
+                {
+                    "type": "turn_complete",
+                    "turns_used": 0,
+                    "turns_remaining": 2,
+                    "counted": False,
+                },
                 {"type": "turn_complete", "turns_used": 1, "turns_remaining": 1},
                 {"type": "turn_complete", "turns_used": 2, "turns_remaining": 0},
                 {"type": "limit_reached", "max_turns": 2},
