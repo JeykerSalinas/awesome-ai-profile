@@ -10,6 +10,7 @@ from langchain_core.tools import BaseTool
 from agents.tools import (
     build_search_documents_tool,
     get_candidate_photo,
+    get_contact_details,
     get_profile_section,
     search_experience,
 )
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 def build_live_tools(document_ids: list[str] | None = None) -> dict[str, BaseTool]:
     tools = [
         get_candidate_photo,
+        get_contact_details,
         get_profile_section,
         search_experience,
         build_search_documents_tool(document_ids),

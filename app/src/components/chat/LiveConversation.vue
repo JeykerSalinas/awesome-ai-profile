@@ -25,6 +25,8 @@ import {
 } from "@/utils/liveAudio";
 
 type LiveState = "idle" | "connecting" | "listening" | "speaking" | "limit" | "error";
+const LIVE_CONNECTION_TIMEOUT_MS = 20_000;
+
 type LiveControlMessage = {
   type: "ready" | "error" | "interrupted" | "ending" | "turn_complete" | "limit_reached" | "transcript" | "tool";
   message?: string;
@@ -40,6 +42,7 @@ type LiveControlMessage = {
   max_turns?: number;
   turns_used?: number;
   turns_remaining?: number;
+  counted?: boolean;
   result?: string;
 };
 
@@ -73,6 +76,7 @@ const activeTool = ref("");
 const transcript = ref("");
 const photoUrl = ref("");
 let socket: WebSocket | null = null;
+let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
 let microphoneStream: MediaStream | null = null;
 let audioContext: AudioContext | null = null;
 let microphoneSource: MediaStreamAudioSourceNode | null = null;
@@ -88,18 +92,50 @@ const transcriptBuffers: Record<LiveTranscriptRole, string> = {
   assistant: "",
 };
 
+function clearConnectionTimeout() {
+  if (connectionTimeout === null) return;
+  clearTimeout(connectionTimeout);
+  connectionTimeout = null;
+}
+
+function failConversation(options: {
+  message: string;
+  code: string;
+  stage: string;
+  detail?: string;
+  retryable?: boolean;
+}) {
+  clearConnectionTimeout();
+  errorMessage.value = options.message;
+  errorCode.value = options.code;
+  errorDetail.value = options.detail || "";
+  errorStage.value = options.stage;
+  errorRetryable.value = options.retryable ?? true;
+  state.value = "error";
+
+  const failedSocket = socket;
+  socket = null;
+  if (failedSocket && failedSocket.readyState < WebSocket.CLOSING) {
+    failedSocket.close();
+  }
+  cleanupMedia();
+}
+
 const active = computed(() =>
   ["connecting", "listening", "speaking"].includes(state.value)
 );
 const turnsRemaining = computed(() =>
   remainingLiveTurns(dailyUsage.value, serverTurnLimit.value)
 );
+const liveLimitReached = computed(() =>
+  text.value.liveLimitReached.replace("{limit}", String(serverTurnLimit.value))
+);
 const panelVisible = computed(
   () => state.value !== "idle" || Boolean(errorMessage.value || limitMessage.value)
 );
 const buttonTooltip = computed(() =>
   turnsRemaining.value === 0
-    ? text.value.liveLimitReached
+    ? liveLimitReached.value
     : props.pulse
       ? text.value.liveTryMode
       : text.value.liveMode
@@ -107,11 +143,17 @@ const buttonTooltip = computed(() =>
 const remainingLabel = computed(() =>
   text.value.liveTurnsRemaining.replace("{count}", String(turnsRemaining.value))
 );
+const triggerLabel = computed(() =>
+  active.value ? text.value.liveEndButtonLabel : text.value.liveButtonLabel
+);
+const triggerIcon = computed(() =>
+  active.value ? "i-lucide-phone-off" : "i-lucide-message-circle-more"
+);
 const statusLabel = computed(() => {
   if (activeTool.value) return text.value.liveUsingTool.replace("{tool}", activeTool.value);
   if (state.value === "connecting") return text.value.liveConnecting;
   if (state.value === "speaking") return text.value.liveSpeaking;
-  if (state.value === "limit") return limitMessage.value || text.value.liveLimitReached;
+  if (state.value === "limit") return limitMessage.value || liveLimitReached.value;
   if (state.value === "error") return errorMessage.value || text.value.liveError;
   return text.value.liveListening;
 });
@@ -171,7 +213,7 @@ function stopMicrophoneCapture() {
 }
 
 function showUsageLimit() {
-  limitMessage.value = text.value.liveLimitReached;
+  limitMessage.value = liveLimitReached.value;
   state.value = "limit";
   closeWhenPlaybackEnds = true;
   stopMicrophoneCapture();
@@ -238,6 +280,7 @@ function startMicrophoneCapture() {
 
 function handleControlMessage(message: LiveControlMessage) {
   if (message.type === "ready") {
+    clearConnectionTimeout();
     serverTurnLimit.value = message.max_turns || DEFAULT_LIVE_TURN_LIMIT;
     dailyUsage.value = normalizeLiveUsage(dailyUsage.value);
     if (turnsRemaining.value === 0) {
@@ -276,6 +319,7 @@ function handleControlMessage(message: LiveControlMessage) {
   }
   if (message.type === "turn_complete") {
     completeTranscriptTurn();
+    if (message.counted === false) return;
     const reportedTurns = message.turns_used || sessionTurnsRecorded.value + 1;
     const newTurns = Math.max(0, reportedTurns - sessionTurnsRecorded.value);
     sessionTurnsRecorded.value = Math.max(sessionTurnsRecorded.value, reportedTurns);
@@ -292,19 +336,21 @@ function handleControlMessage(message: LiveControlMessage) {
     return;
   }
   if (message.type === "error") {
-    errorMessage.value = message.message || text.value.liveError;
-    errorCode.value = message.code || "live_session_failed";
-    errorDetail.value = message.detail || "";
-    errorStage.value = message.stage || "";
-    errorRetryable.value = Boolean(message.retryable);
-    state.value = "error";
+    failConversation({
+      message: message.message || text.value.liveError,
+      code: message.code || "live_session_failed",
+      detail: message.detail,
+      stage: message.stage || (state.value === "connecting" ? "connecting" : "streaming"),
+      retryable: Boolean(message.retryable),
+    });
     return;
   }
   if (message.type === "ending") {
-    errorMessage.value ||= text.value.liveSessionEnding;
-    errorCode.value ||= "session_ending";
-    errorRetryable.value = true;
-    state.value = "error";
+    failConversation({
+      message: text.value.liveSessionEnding,
+      code: "session_ending",
+      stage: "streaming",
+    });
   }
 }
 
@@ -328,6 +374,7 @@ async function startConversation() {
   closeWhenPlaybackEnds = false;
   beginTranscriptSession();
   state.value = "connecting";
+  let startStage = "microphone";
 
   try {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -345,10 +392,22 @@ async function startConversation() {
     await audioContext.resume();
     nextPlaybackTime = audioContext.currentTime;
 
-    socket = new WebSocket(buildLiveWebSocketUrl(props.apiBaseUrl));
-    socket.binaryType = "arraybuffer";
-    socket.onopen = () => {
-      socket?.send(
+    startStage = "connecting";
+    const activeSocket = new WebSocket(buildLiveWebSocketUrl(props.apiBaseUrl));
+    socket = activeSocket;
+    activeSocket.binaryType = "arraybuffer";
+    connectionTimeout = setTimeout(() => {
+      if (socket !== activeSocket || state.value !== "connecting") return;
+      failConversation({
+        message: text.value.liveConnectionTimeout,
+        code: "live_connection_timeout",
+        detail: `The live service did not become ready within ${LIVE_CONNECTION_TIMEOUT_MS / 1000} seconds.`,
+        stage: "connecting",
+      });
+    }, LIVE_CONNECTION_TIMEOUT_MS);
+    activeSocket.onopen = () => {
+      if (socket !== activeSocket) return;
+      activeSocket.send(
         JSON.stringify({
           type: "start",
           locale: locale.value,
@@ -357,22 +416,44 @@ async function startConversation() {
         })
       );
     };
-    socket.onmessage = (event) => {
+    activeSocket.onmessage = (event) => {
+      if (socket !== activeSocket) return;
       if (typeof event.data === "string") {
-        handleControlMessage(JSON.parse(event.data) as LiveControlMessage);
+        try {
+          handleControlMessage(JSON.parse(event.data) as LiveControlMessage);
+        } catch {
+          failConversation({
+            message: text.value.liveConnectionError,
+            code: "invalid_live_message",
+            detail: "The live service returned an invalid control message.",
+            stage: state.value === "connecting" ? "connecting" : "streaming",
+          });
+        }
       } else {
         playAudio(event.data as ArrayBuffer);
       }
     };
-    socket.onerror = () => {
-      errorMessage.value = text.value.liveConnectionError;
-      errorCode.value = "browser_websocket_error";
-      errorStage.value = state.value === "connecting" ? "connecting" : "streaming";
-      errorRetryable.value = true;
-      state.value = "error";
+    activeSocket.onerror = () => {
+      if (socket !== activeSocket) return;
+      failConversation({
+        message: text.value.liveConnectionError,
+        code: "browser_websocket_error",
+        stage: state.value === "connecting" ? "connecting" : "streaming",
+      });
     };
-    socket.onclose = () => {
-      if (state.value !== "error" && state.value !== "limit") state.value = "idle";
+    activeSocket.onclose = (event) => {
+      if (socket !== activeSocket) return;
+      socket = null;
+      clearConnectionTimeout();
+      if (state.value === "connecting" || state.value === "listening" || state.value === "speaking") {
+        failConversation({
+          message: text.value.liveConnectionClosed,
+          code: "live_connection_closed",
+          detail: `WebSocket closed with code ${event.code}.`,
+          stage: state.value === "connecting" ? "connecting" : "streaming",
+        });
+        return;
+      }
       if (state.value === "limit" && playbackSources.size > 0) {
         stopMicrophoneCapture();
         return;
@@ -380,10 +461,15 @@ async function startConversation() {
       cleanupMedia();
     };
   } catch (cause) {
-    errorMessage.value =
-      cause instanceof Error ? cause.message : text.value.liveError;
-    state.value = "error";
-    cleanupMedia();
+    failConversation({
+      message:
+        startStage === "microphone"
+          ? text.value.liveMicrophoneError
+          : text.value.liveConnectionError,
+      code: startStage === "microphone" ? "microphone_error" : "live_connection_failed",
+      detail: cause instanceof Error ? cause.message : undefined,
+      stage: startStage,
+    });
   }
 }
 
@@ -395,6 +481,7 @@ function cleanupMedia() {
 }
 
 function stopConversation(clearError = true) {
+  clearConnectionTimeout();
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "stop" }));
   }
@@ -433,14 +520,16 @@ onBeforeUnmount(() => stopConversation());
   <span class="inline-flex">
     <UTooltip :text="buttonTooltip">
       <UButton
-        icon="i-lucide-mic"
+        :icon="triggerIcon"
+        :label="triggerLabel"
         type="button"
         :aria-label="buttonTooltip"
         :title="buttonTooltip"
-        :color="active ? 'primary' : 'neutral'"
-        :variant="active ? 'soft' : 'ghost'"
+        color="primary"
+        :variant="active ? 'solid' : 'soft'"
+        class="live-trigger rounded-full"
         :class="{ 'live-trigger--pulsing': pulse && turnsRemaining > 0 }"
-        size="sm"
+        size="md"
         @click="toggleConversation"
       />
     </UTooltip>
@@ -547,6 +636,11 @@ onBeforeUnmount(() => stopConversation());
   animation: live-trigger-pulse 2.2s ease-in-out infinite;
 }
 
+.live-trigger {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  box-shadow: 0 8px 22px rgb(50 8 8 / 9%);
+}
+
 .live-orb {
   display: flex;
   width: 3.25rem;
@@ -583,7 +677,7 @@ onBeforeUnmount(() => stopConversation());
 
 @keyframes live-trigger-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(229 109 88 / 0); }
-  50% { transform: scale(1.08); box-shadow: 0 0 0 7px rgb(229 109 88 / 14%); }
+  50% { transform: scale(1.025); box-shadow: 0 0 0 6px rgb(229 109 88 / 12%); }
 }
 
 .live-panel-enter-active,

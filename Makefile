@@ -6,7 +6,7 @@ IMAGE_NAME ?= app-backend
 IMAGE_TAG ?= latest
 ACR_LOGIN_SERVER ?= $(if $(ACR_NAME),$(ACR_NAME).azurecr.io)
 
-.PHONY: help install back-install front back live-diagnose dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health azure-login acr-login deploy-back guard-%
+.PHONY: help install back-install front back live-diagnose dev generate-types type-check build clean docker-back-build docker-back-run docker-back-health azure-login acr-login deploy-back logs-back logs-back-system guard-%
 
 help:
 	@echo "Available commands:"
@@ -26,6 +26,8 @@ help:
 	@echo "  make azure-login        Login to Azure manually"
 	@echo "  make acr-login          Login to Azure Container Registry"
 	@echo "  make deploy-back        Build, push, and deploy the backend container"
+	@echo "  make logs-back          Follow backend application logs"
+	@echo "  make logs-back-system   Show recent Container Apps system logs"
 	@echo ""
 	@echo "Optional local config:"
 	@echo "  .env.make              Local Make variables for Azure/deploy settings"
@@ -94,3 +96,18 @@ deploy-back:
 		--name $(CONTAINER_APP_NAME) \
 		--resource-group $(RESOURCE_GROUP) \
 		--image $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(IMAGE_TAG)
+
+logs-back: guard-RESOURCE_GROUP guard-CONTAINER_APP_NAME
+	az containerapp logs show \
+		--name $(CONTAINER_APP_NAME) \
+		--resource-group $(RESOURCE_GROUP) \
+		--type console \
+		--tail 100 \
+		--follow
+
+logs-back-system: guard-RESOURCE_GROUP guard-CONTAINER_APP_NAME
+	az containerapp logs show \
+		--name $(CONTAINER_APP_NAME) \
+		--resource-group $(RESOURCE_GROUP) \
+		--type system \
+		--tail 100

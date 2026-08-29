@@ -183,7 +183,7 @@ export const features = {
 export type FeatureId = keyof typeof features
 export const toolFeatures: Record<string, FeatureId> = {
   get_candidate_photo: 'photo', get_profile_section: 'profile',
-  search_experience: 'experience', search_documents: 'rag',
+  get_contact_details: 'tools', search_experience: 'experience', search_documents: 'rag',
 }
 
 export const insightCopy = {

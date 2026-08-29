@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator
+from time import monotonic
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
     from agents.events import AgentStreamEvent
+
+from services.chat_error_service import (
+    SupportedLocale,
+    classify_chat_error,
+    diagnostic_summary,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 def encode_sse_event(event: dict[str, object]) -> str:
@@ -16,7 +27,11 @@ def encode_sse_event(event: dict[str, object]) -> str:
 async def stream_ui_messages(
     first_chunk: AgentStreamEvent | None,
     stream: AsyncIterator[AgentStreamEvent],
+    locale: SupportedLocale = "en",
+    request_id: str | None = None,
 ) -> AsyncIterator[str]:
+    request_id = request_id or uuid4().hex
+    started = monotonic()
     message_id = f"assistant-{uuid4().hex}"
     text_id: str | None = None
 
@@ -86,7 +101,30 @@ async def stream_ui_messages(
 
         yield encode_sse_event({"type": "finish-step"})
         yield encode_sse_event({"type": "finish", "finishReason": "stop"})
-    except Exception:
-        yield encode_sse_event({"type": "error", "errorText": "The response could not be completed. Please try again."})
+        logger.info(
+            "chat_stream_completed",
+            extra={
+                "request_id": request_id,
+                "duration_ms": round((monotonic() - started) * 1000),
+            },
+        )
+    except Exception as exc:
+        public_error = classify_chat_error(exc)
+        logger.error(
+            "chat_stream_failed",
+            extra={
+                "request_id": request_id,
+                "error_code": public_error.code,
+                "error_type": type(exc).__name__,
+                "provider_detail": diagnostic_summary(exc),
+                "duration_ms": round((monotonic() - started) * 1000),
+            },
+        )
+        yield encode_sse_event(
+            {
+                "type": "error",
+                "errorText": public_error.serialize(locale, request_id),
+            }
+        )
 
     yield "data: [DONE]\n\n"

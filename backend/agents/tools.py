@@ -4,7 +4,14 @@ from typing import Literal
 from langchain.tools import tool
 
 from services.knowledge_service import get_profile_section_data, search_professional_experience
+from services.public_contact import public_contact_details
 from services.vector_store_service import get_vector_store_service
+
+
+@tool
+def get_contact_details() -> str:
+    """Get Jeyker's authorized public phone, email, GitHub and LinkedIn when a visitor asks for or accepts his contact details."""
+    return json.dumps(public_contact_details(), ensure_ascii=False)
 
 
 @tool

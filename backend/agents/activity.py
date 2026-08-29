@@ -7,7 +7,8 @@ from typing import Any
 from agents.events import ActivityStatus, AgentActivityData, AgentStreamEvent
 
 PUBLIC_TOOLS = frozenset({
-    "get_candidate_photo", "get_profile_section", "search_experience", "search_documents",
+    "get_candidate_photo", "get_contact_details", "get_profile_section",
+    "search_experience", "search_documents",
 })
 
 

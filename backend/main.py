@@ -1,3 +1,6 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat import router as chat_router
@@ -7,9 +10,28 @@ from routes.live import router as live_router
 import uvicorn
 
 from settings import get_settings
+from observability import configure_logging, install_request_logging
 # import database
 settings = get_settings()
-app = FastAPI()
+configure_logging()
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    logger.info(
+        "application_started",
+        extra={
+            "google_api_key_configured": bool(settings.google_api_key),
+            "gemini_live_model": settings.gemini_live_model,
+            "log_level": settings.log_level.upper(),
+        },
+    )
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+install_request_logging(app)
 
 app.add_middleware(
     CORSMiddleware,
