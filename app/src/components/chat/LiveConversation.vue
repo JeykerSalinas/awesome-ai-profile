@@ -42,6 +42,7 @@ type LiveControlMessage = {
   max_turns?: number;
   turns_used?: number;
   turns_remaining?: number;
+  counted?: boolean;
   result?: string;
 };
 
@@ -141,6 +142,12 @@ const buttonTooltip = computed(() =>
 );
 const remainingLabel = computed(() =>
   text.value.liveTurnsRemaining.replace("{count}", String(turnsRemaining.value))
+);
+const triggerLabel = computed(() =>
+  active.value ? text.value.liveEndButtonLabel : text.value.liveButtonLabel
+);
+const triggerIcon = computed(() =>
+  active.value ? "i-lucide-phone-off" : "i-lucide-message-circle-more"
 );
 const statusLabel = computed(() => {
   if (activeTool.value) return text.value.liveUsingTool.replace("{tool}", activeTool.value);
@@ -312,6 +319,7 @@ function handleControlMessage(message: LiveControlMessage) {
   }
   if (message.type === "turn_complete") {
     completeTranscriptTurn();
+    if (message.counted === false) return;
     const reportedTurns = message.turns_used || sessionTurnsRecorded.value + 1;
     const newTurns = Math.max(0, reportedTurns - sessionTurnsRecorded.value);
     sessionTurnsRecorded.value = Math.max(sessionTurnsRecorded.value, reportedTurns);
@@ -512,14 +520,16 @@ onBeforeUnmount(() => stopConversation());
   <span class="inline-flex">
     <UTooltip :text="buttonTooltip">
       <UButton
-        icon="i-lucide-mic"
+        :icon="triggerIcon"
+        :label="triggerLabel"
         type="button"
         :aria-label="buttonTooltip"
         :title="buttonTooltip"
-        :color="active ? 'primary' : 'neutral'"
-        :variant="active ? 'soft' : 'ghost'"
+        color="primary"
+        :variant="active ? 'solid' : 'soft'"
+        class="live-trigger rounded-full"
         :class="{ 'live-trigger--pulsing': pulse && turnsRemaining > 0 }"
-        size="sm"
+        size="md"
         @click="toggleConversation"
       />
     </UTooltip>
@@ -626,6 +636,11 @@ onBeforeUnmount(() => stopConversation());
   animation: live-trigger-pulse 2.2s ease-in-out infinite;
 }
 
+.live-trigger {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  box-shadow: 0 8px 22px rgb(50 8 8 / 9%);
+}
+
 .live-orb {
   display: flex;
   width: 3.25rem;
@@ -662,7 +677,7 @@ onBeforeUnmount(() => stopConversation());
 
 @keyframes live-trigger-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(229 109 88 / 0); }
-  50% { transform: scale(1.08); box-shadow: 0 0 0 7px rgb(229 109 88 / 14%); }
+  50% { transform: scale(1.025); box-shadow: 0 0 0 6px rgb(229 109 88 / 12%); }
 }
 
 .live-panel-enter-active,

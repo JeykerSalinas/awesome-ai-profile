@@ -26,3 +26,7 @@ test("live errors release browser media and expose retry metadata", () => {
   assert.match(component, /cleanupMedia\(\)/);
   assert.match(component, /code: "invalid_live_message"/);
 });
+
+test("the automatic greeting closes its transcript without consuming visitor usage", () => {
+  assert.match(component, /if \(message\.counted === false\) return/);
+});

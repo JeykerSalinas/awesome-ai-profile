@@ -20,6 +20,10 @@ from settings import get_settings
 
 logger = logging.getLogger(__name__)
 INPUT_AUDIO_MIME_TYPE = "audio/pcm;rate=16000"
+INITIAL_GREETINGS: dict[SupportedLocale, str] = {
+    "es": "Hola, soy Django, asistente profesional de Jeyker.",
+    "en": "Hi, I'm Django, Jeyker's professional assistant.",
+}
 
 
 class LiveServiceError(Exception):
@@ -184,6 +188,7 @@ async def _relay_gemini_output(
     session: Any,
     live_tools: dict[str, Any],
     max_turns: int,
+    uncounted_turns: int = 0,
 ) -> None:
     turns_used = 0
     while True:
@@ -201,6 +206,17 @@ async def _relay_gemini_output(
                 await _send_transcription(websocket, "user", content.input_transcription)
                 await _send_transcription(websocket, "assistant", content.output_transcription)
                 if content.turn_complete:
+                    if uncounted_turns > 0:
+                        uncounted_turns -= 1
+                        await websocket.send_json(
+                            {
+                                "type": "turn_complete",
+                                "turns_used": turns_used,
+                                "turns_remaining": max_turns,
+                                "counted": False,
+                            }
+                        )
+                        continue
                     turns_used += 1
                     await websocket.send_json(
                         {
@@ -258,6 +274,25 @@ async def run_live_session(
                     ],
                     turn_complete=False,
                 )
+            stage = "greeting"
+            greeting = INITIAL_GREETINGS[locale]
+            await session.send_client_content(
+                turns=[
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": (
+                                    "Start the voice conversation now. Your complete "
+                                    "response must be exactly this sentence, without "
+                                    f"quotation marks: {greeting}"
+                                )
+                            }
+                        ],
+                    }
+                ],
+                turn_complete=True,
+            )
             stage = "streaming"
             await websocket.send_json(
                 {"type": "ready", "max_turns": settings.gemini_live_max_turns}
@@ -269,6 +304,7 @@ async def run_live_session(
                     session,
                     live_tools,
                     settings.gemini_live_max_turns,
+                    uncounted_turns=1,
                 )
             )
             done, pending = await asyncio.wait(
