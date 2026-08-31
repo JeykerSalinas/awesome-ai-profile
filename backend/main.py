@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.chat import router as chat_router
 from routes.documents import router as documents_router
 from routes.live import router as live_router
+from routes.channels import router as channels_router
 
 import uvicorn
 
@@ -43,6 +44,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(documents_router)
 app.include_router(live_router)
+app.include_router(channels_router)
 
 @app.get("/health")
 def health():

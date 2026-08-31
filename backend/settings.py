@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -59,6 +60,38 @@ class Settings(BaseSettings):
         ge=1,
         le=100,
         validation_alias=AliasChoices("GEMINI_LIVE_MAX_TURNS"),
+    )
+    channel_default_locale: Literal["en", "es"] = Field(
+        default="es",
+        validation_alias=AliasChoices("CHANNEL_DEFAULT_LOCALE"),
+    )
+    channel_public_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CHANNEL_PUBLIC_BASE_URL"),
+    )
+    whatsapp_verify_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("WHATSAPP_VERIFY_TOKEN"),
+    )
+    whatsapp_app_secret: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("WHATSAPP_APP_SECRET"),
+    )
+    whatsapp_access_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("WHATSAPP_ACCESS_TOKEN"),
+    )
+    whatsapp_phone_number_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("WHATSAPP_PHONE_NUMBER_ID"),
+    )
+    meta_graph_api_version: str = Field(
+        default="v26.0",
+        validation_alias=AliasChoices("META_GRAPH_API_VERSION"),
+    )
+    twilio_auth_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TWILIO_AUTH_TOKEN"),
     )
 
 
