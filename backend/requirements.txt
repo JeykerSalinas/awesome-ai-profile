@@ -10,3 +10,4 @@ langchain-chroma
 langchain-text-splitters
 pypdf==6.6.0
 python-multipart==0.0.22
+httpx==0.28.1
