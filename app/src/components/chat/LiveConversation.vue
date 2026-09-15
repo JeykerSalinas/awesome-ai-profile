@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useStorage } from "@vueuse/core";
+import posthog from "posthog-js";
 
 import { useLocale } from "@/composables/useLocale";
 import FeatureExplainer from "@/components/chat/FeatureExplainer.vue";
@@ -26,6 +27,9 @@ import {
 
 type LiveState = "idle" | "connecting" | "listening" | "speaking" | "limit" | "error";
 const LIVE_CONNECTION_TIMEOUT_MS = 20_000;
+const posthogConfigured = Boolean(
+  import.meta.env.VITE_POSTHOG_PROJECT_TOKEN && import.meta.env.VITE_POSTHOG_HOST
+);
 
 type LiveControlMessage = {
   type: "ready" | "error" | "interrupted" | "ending" | "turn_complete" | "limit_reached" | "transcript" | "tool";
@@ -289,6 +293,12 @@ function handleControlMessage(message: LiveControlMessage) {
     }
     state.value = "listening";
     startMicrophoneCapture();
+    if (posthogConfigured) {
+      posthog.capture("live_conversation_started", {
+        has_document_context: Boolean(props.documentIds?.length),
+        has_chat_history: Boolean(props.history?.length),
+      });
+    }
     return;
   }
   if (message.type === "interrupted") {
@@ -323,6 +333,9 @@ function handleControlMessage(message: LiveControlMessage) {
     const reportedTurns = message.turns_used || sessionTurnsRecorded.value + 1;
     const newTurns = Math.max(0, reportedTurns - sessionTurnsRecorded.value);
     sessionTurnsRecorded.value = Math.max(sessionTurnsRecorded.value, reportedTurns);
+    if (posthogConfigured) {
+      posthog.capture("live_turn_completed", { total_turns_used: reportedTurns });
+    }
     dailyUsage.value = recordLiveTurns(
       dailyUsage.value,
       newTurns,
@@ -480,7 +493,10 @@ function cleanupMedia() {
   audioContext = null;
 }
 
-function stopConversation(clearError = true) {
+function stopConversation(clearError = true, captureStop = false) {
+  if (captureStop && posthogConfigured) {
+    posthog.capture("live_conversation_stopped");
+  }
   clearConnectionTimeout();
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "stop" }));
@@ -509,7 +525,7 @@ function retryConversation() {
 }
 
 function toggleConversation() {
-  if (active.value) stopConversation();
+  if (active.value) stopConversation(true, true);
   else void startConversation();
 }
 
@@ -570,7 +586,7 @@ onBeforeUnmount(() => stopConversation());
           color="error"
           variant="soft"
           size="sm"
-          @click="() => stopConversation()"
+          @click="() => stopConversation(true, true)"
         />
         <div v-else-if="state === 'error'" class="flex items-center gap-1">
           <UButton
@@ -589,7 +605,7 @@ onBeforeUnmount(() => stopConversation());
             color="neutral"
             variant="ghost"
             size="sm"
-            @click="() => stopConversation()"
+            @click="() => stopConversation(true, true)"
           />
         </div>
         <UButton
@@ -599,7 +615,7 @@ onBeforeUnmount(() => stopConversation());
           color="neutral"
           variant="ghost"
           size="sm"
-          @click="() => stopConversation()"
+          @click="() => stopConversation(true, true)"
         />
         <div v-if="photoUrl" class="flex w-full items-center gap-3 rounded-[5px] bg-(--django-surface-soft) p-2">
           <img :src="photoUrl" :alt="text.liveCandidatePhoto" class="size-14 rounded-[5px] object-cover" />

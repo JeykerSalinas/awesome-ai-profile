@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { defineAsyncComponent, nextTick, ref } from 'vue'
+import posthog from 'posthog-js'
 import { useLocale } from '@/composables/useLocale'
 import { appendTourQuestion, storyCopy } from '@/features/tour/story'
 
 // Keep lazy loading, session state and announcements out of the chat view.
+const posthogConfigured = Boolean(
+  import.meta.env.VITE_POSTHOG_PROJECT_TOKEN && import.meta.env.VITE_POSTHOG_HOST,
+)
 const TechnologyTour = defineAsyncComponent(
   () => import('./TechnologyTour.vue'),
 )
@@ -17,6 +21,7 @@ const announcement = ref('')
 function openTour() {
   loaded.value = true
   open.value = true
+  if (posthogConfigured) posthog.capture('technology_tour_opened')
   emit('opened')
 }
 
@@ -24,6 +29,10 @@ defineExpose({ openTour })
 
 async function prepareQuestion(question: string) {
   open.value = false
+  if (posthogConfigured) {
+    posthog.capture('technology_tour_question_prepared')
+    posthog.capture('technology_tour_completed')
+  }
   emit('completed')
   draft.value = appendTourQuestion(draft.value, question)
   // Clear first so repeated preparations are announced too.
@@ -37,6 +46,7 @@ async function prepareQuestion(question: string) {
 
 function completeTour() {
   open.value = false
+  if (posthogConfigured) posthog.capture('technology_tour_completed')
   emit('completed')
 }
 </script>

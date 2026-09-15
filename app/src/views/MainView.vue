@@ -3,6 +3,7 @@ import { computed, ref, useTemplateRef } from "vue";
 import { useChat } from "@ai-sdk/vue";
 import { useDark, useEventListener, useStorage } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
+import posthog from "posthog-js";
 
 import ChatMessageContent from "@/components/chat/ChatMessageContent.vue";
 import LiveConversation from "@/components/chat/LiveConversation.vue";
@@ -18,6 +19,9 @@ import type { ProfileMessage } from "@/types/chat";
 import { parseChatError } from "@/utils/chatError";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const posthogConfigured = Boolean(
+  import.meta.env.VITE_POSTHOG_PROJECT_TOKEN && import.meta.env.VITE_POSTHOG_HOST
+);
 const input = ref("");
 const technologyTour =
   useTemplateRef<InstanceType<typeof TechnologyTourHost>>("technologyTour");
@@ -160,6 +164,13 @@ async function submitMessage(event: Event) {
   composerDocument.value = null;
   uploadError.value = "";
 
+  if (posthogConfigured) {
+    posthog.capture("chat_message_sent", {
+      submission_source: "composer",
+      has_document: Boolean(activeDocument?.status === "ready"),
+    });
+  }
+
   try {
     await sendMessage({ parts: messageParts });
   } finally {
@@ -168,8 +179,15 @@ async function submitMessage(event: Event) {
 }
 
 function sendSuggestion(text: string) {
-  if (status.value === "ready" || status.value === "error")
+  if (status.value === "ready" || status.value === "error") {
+    if (posthogConfigured) {
+      posthog.capture("chat_message_sent", {
+        submission_source: "suggestion",
+        has_document: false,
+      });
+    }
     void sendMessage({ text });
+  }
 }
 
 function stopTourPulse() {
@@ -190,6 +208,9 @@ function markLivePromptAsSeen() {
 }
 
 function respondToApproval(approvalId: string, approved: boolean) {
+  if (posthogConfigured) {
+    posthog.capture("tool_approval_responded", { approved });
+  }
   void addToolApprovalResponse({ id: approvalId, approved });
 }
 
@@ -238,6 +259,9 @@ async function uploadDocument(event: Event) {
       status: "ready",
       serverId: result.id,
     };
+    if (posthogConfigured) {
+      posthog.capture("document_upload_completed", { document_type: "pdf" });
+    }
   })()
     .catch(async (cause) => {
       if (composerDocument.value?.localId === localId) {
