@@ -4,12 +4,18 @@ import { useStorage } from '@vueuse/core'
 
 import DemoPrivacyNotice from '@/components/privacy/DemoPrivacyNotice.vue'
 import { useLocale } from '@/composables/useLocale'
+import { captureEvent } from '@/services/analytics'
 
 const { uiLocale } = useLocale()
 const hasAcknowledgedDemoNotice = useStorage(
   'django-demo-notice-v1-acknowledged',
   false,
 )
+
+function acceptDemoPrivacyNotice() {
+  captureEvent('demo_privacy_notice_accepted')
+  hasAcknowledgedDemoNotice.value = true
+}
 </script>
 
 <template>
@@ -17,7 +23,7 @@ const hasAcknowledgedDemoNotice = useStorage(
     <RouterView />
     <DemoPrivacyNotice
       :open="!hasAcknowledgedDemoNotice"
-      @accept="hasAcknowledgedDemoNotice = true"
+      @accept="acceptDemoPrivacyNotice"
     />
   </UApp>
 </template>

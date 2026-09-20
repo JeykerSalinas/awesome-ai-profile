@@ -14,6 +14,7 @@ import {
   upsertLiveTranscript,
   type LiveTranscriptUpdate,
 } from "@/features/live/transcript";
+import { captureEvent } from "@/services/analytics";
 import type { ProfileMessage } from "@/types/chat";
 import { parseChatError } from "@/utils/chatError";
 
@@ -160,6 +161,11 @@ async function submitMessage(event: Event) {
   composerDocument.value = null;
   uploadError.value = "";
 
+  captureEvent("chat_message_sent", {
+    submission_source: "composer",
+    has_document: Boolean(activeDocument?.status === "ready"),
+  });
+
   try {
     await sendMessage({ parts: messageParts });
   } finally {
@@ -168,8 +174,13 @@ async function submitMessage(event: Event) {
 }
 
 function sendSuggestion(text: string) {
-  if (status.value === "ready" || status.value === "error")
+  if (status.value === "ready" || status.value === "error") {
+    captureEvent("chat_message_sent", {
+      submission_source: "suggestion",
+      has_document: false,
+    });
     void sendMessage({ text });
+  }
 }
 
 function stopTourPulse() {
@@ -190,6 +201,7 @@ function markLivePromptAsSeen() {
 }
 
 function respondToApproval(approvalId: string, approved: boolean) {
+  captureEvent("tool_approval_responded", { approved });
   void addToolApprovalResponse({ id: approvalId, approved });
 }
 
@@ -238,6 +250,7 @@ async function uploadDocument(event: Event) {
       status: "ready",
       serverId: result.id,
     };
+    captureEvent("document_upload_completed", { document_type: "pdf" });
   })()
     .catch(async (cause) => {
       if (composerDocument.value?.localId === localId) {

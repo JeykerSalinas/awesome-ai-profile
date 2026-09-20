@@ -2,6 +2,7 @@
 import { defineAsyncComponent, nextTick, ref } from 'vue'
 import { useLocale } from '@/composables/useLocale'
 import { appendTourQuestion, storyCopy } from '@/features/tour/story'
+import { captureEvent } from '@/services/analytics'
 
 // Keep lazy loading, session state and announcements out of the chat view.
 const TechnologyTour = defineAsyncComponent(
@@ -17,6 +18,7 @@ const announcement = ref('')
 function openTour() {
   loaded.value = true
   open.value = true
+  captureEvent('technology_tour_opened')
   emit('opened')
 }
 
@@ -24,6 +26,8 @@ defineExpose({ openTour })
 
 async function prepareQuestion(question: string) {
   open.value = false
+  captureEvent('technology_tour_question_prepared')
+  captureEvent('technology_tour_completed')
   emit('completed')
   draft.value = appendTourQuestion(draft.value, question)
   // Clear first so repeated preparations are announced too.
@@ -37,6 +41,7 @@ async function prepareQuestion(question: string) {
 
 function completeTour() {
   open.value = false
+  captureEvent('technology_tour_completed')
   emit('completed')
 }
 </script>
