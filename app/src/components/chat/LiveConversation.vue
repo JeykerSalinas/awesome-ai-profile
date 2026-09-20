@@ -577,7 +577,7 @@ onBeforeUnmount(() => stopConversation());
           color="error"
           variant="soft"
           size="sm"
-          @click="() => stopConversation()"
+          @click="() => stopConversation(true, true)"
         />
         <div v-else-if="state === 'error'" class="flex items-center gap-1">
           <UButton
@@ -596,7 +596,7 @@ onBeforeUnmount(() => stopConversation());
             color="neutral"
             variant="ghost"
             size="sm"
-            @click="() => stopConversation()"
+            @click="() => stopConversation(true, true)"
           />
         </div>
         <UButton
@@ -606,7 +606,7 @@ onBeforeUnmount(() => stopConversation());
           color="neutral"
           variant="ghost"
           size="sm"
-          @click="() => stopConversation()"
+          @click="() => stopConversation(true, true)"
         />
         <div v-if="photoUrl" class="flex w-full items-center gap-3 rounded-[5px] bg-(--django-surface-soft) p-2">
           <img :src="photoUrl" :alt="text.liveCandidatePhoto" class="size-14 rounded-[5px] object-cover" />

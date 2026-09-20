@@ -43,3 +43,5 @@ app/.vscode/*
 # Generated Nuxt UI / Vue type declarations
 app/auto-imports.d.ts
 app/components.d.ts
+
+/app/.claude/
