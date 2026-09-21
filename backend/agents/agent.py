@@ -42,18 +42,19 @@ def get_agent(locale: SupportedLocale = "en", document_ids: list[str] | None = N
 
 
 async def ask_agent(message: str, locale: SupportedLocale = "en") -> str:
+    return await ask_agent_messages(
+        [{"role": "user", "content": message}],
+        locale,
+    )
+
+
+async def ask_agent_messages(
+    messages: list[dict[str, str]],
+    locale: SupportedLocale = "en",
+) -> str:
     agent = get_agent(locale)
 
-    result = await agent.ainvoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": message,
-                }
-            ]
-        }
-    )
+    result = await agent.ainvoke({"messages": messages})
 
     last_message = result["messages"][-1]
 

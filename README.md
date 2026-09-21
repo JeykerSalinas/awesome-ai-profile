@@ -87,6 +87,13 @@ Nuxt UI is used as a Vue component library. This repository does not require Nux
 | `POST /documents` | Validate, extract, chunk and index a PDF |
 | `DELETE /documents/{id}` | Remove a temporary visitor document |
 | `WS /live/ws` | Bidirectional live audio and tool events |
+| `GET/POST /channels/whatsapp/webhook` | Optional signed WhatsApp Cloud API adapter |
+| `POST /channels/voice/incoming` | Optional signed turn-based telephony adapter |
+
+The optional channel proof of concept reuses the same agent, tools and RAG from
+WhatsApp and turn-based phone calls. It remains disabled until provider secrets are
+configured. See the [Spanish implementation proposal](docs/propuesta-agentes-omnicanal.md)
+for scope, architecture and the path to production.
 
 ## How RAG and document privacy work
 
