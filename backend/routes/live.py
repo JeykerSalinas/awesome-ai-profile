@@ -33,6 +33,7 @@ async def live_conversation(websocket: WebSocket) -> None:
             start.locale,
             start.documents,
             [message.model_dump() for message in start.history],
+            profile_id=start.profile_id,
         )
     except ValidationError:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)

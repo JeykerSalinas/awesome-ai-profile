@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { personalize } from "@/config/profile";
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { useLocale } from '@/composables/useLocale'
 import {
@@ -16,10 +17,10 @@ const emit = defineEmits<{
   prepareQuestion: [question: string]
 }>()
 const { locale } = useLocale()
-const copy = computed(() => storyCopy[locale.value])
+const copy = computed(() => personalize(storyCopy[locale.value]))
 const index = ref(0)
 const chapter = computed(() => chapters[chapterIndex(index.value)]!)
-const content = computed(() => chapter.value[locale.value])
+const content = computed(() => personalize(chapter.value[locale.value]))
 const isLast = computed(() => index.value === chapters.length - 1)
 const dialog = ref<HTMLDialogElement | null>(null)
 const card = ref<HTMLElement | null>(null)

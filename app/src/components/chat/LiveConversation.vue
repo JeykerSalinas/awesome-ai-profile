@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import { activeProfile, profileStorageKey } from "@/config/profile";
 import { useStorage } from "@vueuse/core";
 
 import { useLocale } from "@/composables/useLocale";
@@ -69,7 +70,7 @@ const errorRetryable = ref(false);
 const serverTurnLimit = ref(DEFAULT_LIVE_TURN_LIMIT);
 const sessionTurnsRecorded = ref(0);
 const limitMessage = ref("");
-const dailyUsage = useStorage<LiveDailyUsage>("django-live-daily-usage", {
+const dailyUsage = useStorage<LiveDailyUsage>(profileStorageKey("django-live-daily-usage"), {
   day: liveUsageDay(),
   turns: 0,
 });
@@ -416,6 +417,7 @@ async function startConversation() {
       activeSocket.send(
         JSON.stringify({
           type: "start",
+          profile_id: activeProfile.id,
           locale: locale.value,
           documents: props.documentIds || [],
           history: props.history || [],
