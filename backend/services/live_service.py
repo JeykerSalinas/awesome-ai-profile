@@ -16,6 +16,7 @@ from services.live_tools_service import (
 )
 from services.prompt_service import SupportedLocale, build_professional_system_prompt
 from settings import get_settings
+from services.profile_service import initial_greeting
 
 
 logger = logging.getLogger(__name__)
@@ -99,12 +100,13 @@ def build_live_config(
     document_ids: list[str] | None = None,
     *,
     include_tools: bool = True,
+    profile_id: str = "jeyker",
 ) -> types.LiveConnectConfig:
     settings = get_settings()
-    live_tools = build_live_tools(document_ids)
+    live_tools = build_live_tools(document_ids, profile_id)
     return types.LiveConnectConfig(
         response_modalities=[types.Modality.AUDIO],
-        system_instruction=build_professional_system_prompt(locale),
+        system_instruction=build_professional_system_prompt(locale, profile_id),
         tools=[build_live_tool_config(live_tools)] if include_tools else None,
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
@@ -243,6 +245,7 @@ async def run_live_session(
     locale: SupportedLocale,
     document_ids: list[str] | None = None,
     history: list[dict[str, str]] | None = None,
+    profile_id: str = "jeyker",
 ) -> None:
     settings = get_settings()
     if not settings.google_api_key:
@@ -252,7 +255,7 @@ async def run_live_session(
             stage="configuration",
         )
 
-    live_tools = build_live_tools(document_ids)
+    live_tools = build_live_tools(document_ids, profile_id)
     client: genai.Client | None = None
 
     stage = "connecting"
@@ -260,7 +263,7 @@ async def run_live_session(
         client = genai.Client(api_key=settings.google_api_key)
         async with client.aio.live.connect(
             model=settings.gemini_live_model,
-            config=build_live_config(locale, document_ids),
+            config=build_live_config(locale, document_ids, profile_id=profile_id),
         ) as session:
             stage = "seeding_history"
             if history:
@@ -275,7 +278,7 @@ async def run_live_session(
                     turn_complete=False,
                 )
             stage = "greeting"
-            greeting = INITIAL_GREETINGS[locale]
+            greeting = initial_greeting(locale, profile_id)
             await session.send_client_content(
                 turns=[
                     {

@@ -1,22 +1,20 @@
 <script setup lang="ts">
+import { profileStorageKey } from "@/config/profile"
 import { RouterView } from 'vue-router'
 import { useStorage } from '@vueuse/core'
-import posthog from 'posthog-js'
 
 import DemoPrivacyNotice from '@/components/privacy/DemoPrivacyNotice.vue'
 import { useLocale } from '@/composables/useLocale'
+import { captureEvent } from '@/services/analytics'
 
-const posthogConfigured = Boolean(
-  import.meta.env.VITE_POSTHOG_PROJECT_TOKEN && import.meta.env.VITE_POSTHOG_HOST,
-)
 const { uiLocale } = useLocale()
 const hasAcknowledgedDemoNotice = useStorage(
-  'django-demo-notice-v1-acknowledged',
+  profileStorageKey("django-demo-notice-v1-acknowledged"),
   false,
 )
 
 function acceptDemoPrivacyNotice() {
-  if (posthogConfigured) posthog.capture('demo_privacy_notice_accepted')
+  captureEvent('demo_privacy_notice_accepted')
   hasAcknowledgedDemoNotice.value = true
 }
 </script>

@@ -1,10 +1,12 @@
 from typing import Literal
+from services.profile_service import ProfileId
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ChatRequest(BaseModel):
     message: str
+    profile_id: ProfileId = "jeyker"
     locale: Literal["en", "es"] = "en"
 
 
@@ -41,6 +43,7 @@ class ChatStreamRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str | None = None
+    profile_id: ProfileId = "jeyker"
     locale: Literal["en", "es"] = "en"
     messages: list[UIChatMessage] = Field(default_factory=list)
     message: str | None = None

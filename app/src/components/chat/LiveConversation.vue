@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import { activeProfile, profileStorageKey } from "@/config/profile";
 import { useStorage } from "@vueuse/core";
-import posthog from "posthog-js";
 
 import { useLocale } from "@/composables/useLocale";
 import FeatureExplainer from "@/components/chat/FeatureExplainer.vue";
@@ -18,6 +18,7 @@ import {
   remainingLiveTurns,
   type LiveDailyUsage,
 } from "@/features/live/usage";
+import { captureEvent } from "@/services/analytics";
 import {
   buildLiveWebSocketUrl,
   LIVE_OUTPUT_SAMPLE_RATE,
@@ -27,9 +28,6 @@ import {
 
 type LiveState = "idle" | "connecting" | "listening" | "speaking" | "limit" | "error";
 const LIVE_CONNECTION_TIMEOUT_MS = 20_000;
-const posthogConfigured = Boolean(
-  import.meta.env.VITE_POSTHOG_PROJECT_TOKEN && import.meta.env.VITE_POSTHOG_HOST
-);
 
 type LiveControlMessage = {
   type: "ready" | "error" | "interrupted" | "ending" | "turn_complete" | "limit_reached" | "transcript" | "tool";
@@ -72,7 +70,7 @@ const errorRetryable = ref(false);
 const serverTurnLimit = ref(DEFAULT_LIVE_TURN_LIMIT);
 const sessionTurnsRecorded = ref(0);
 const limitMessage = ref("");
-const dailyUsage = useStorage<LiveDailyUsage>("django-live-daily-usage", {
+const dailyUsage = useStorage<LiveDailyUsage>(profileStorageKey("django-live-daily-usage"), {
   day: liveUsageDay(),
   turns: 0,
 });
@@ -293,12 +291,10 @@ function handleControlMessage(message: LiveControlMessage) {
     }
     state.value = "listening";
     startMicrophoneCapture();
-    if (posthogConfigured) {
-      posthog.capture("live_conversation_started", {
-        has_document_context: Boolean(props.documentIds?.length),
-        has_chat_history: Boolean(props.history?.length),
-      });
-    }
+    captureEvent("live_conversation_started", {
+      has_document_context: Boolean(props.documentIds?.length),
+      has_chat_history: Boolean(props.history?.length),
+    });
     return;
   }
   if (message.type === "interrupted") {
@@ -333,9 +329,7 @@ function handleControlMessage(message: LiveControlMessage) {
     const reportedTurns = message.turns_used || sessionTurnsRecorded.value + 1;
     const newTurns = Math.max(0, reportedTurns - sessionTurnsRecorded.value);
     sessionTurnsRecorded.value = Math.max(sessionTurnsRecorded.value, reportedTurns);
-    if (posthogConfigured) {
-      posthog.capture("live_turn_completed", { total_turns_used: reportedTurns });
-    }
+    captureEvent("live_turn_completed", { total_turns_used: reportedTurns });
     dailyUsage.value = recordLiveTurns(
       dailyUsage.value,
       newTurns,
@@ -423,6 +417,7 @@ async function startConversation() {
       activeSocket.send(
         JSON.stringify({
           type: "start",
+          profile_id: activeProfile.id,
           locale: locale.value,
           documents: props.documentIds || [],
           history: props.history || [],
@@ -494,9 +489,7 @@ function cleanupMedia() {
 }
 
 function stopConversation(clearError = true, captureStop = false) {
-  if (captureStop && posthogConfigured) {
-    posthog.capture("live_conversation_stopped");
-  }
+  if (captureStop) captureEvent("live_conversation_stopped");
   clearConnectionTimeout();
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "stop" }));
