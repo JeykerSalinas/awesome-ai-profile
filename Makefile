@@ -86,16 +86,14 @@ guard-%:
 acr-login: guard-ACR_NAME
 	az acr login --name $(ACR_NAME)
 
-deploy-back: guard-ACR_NAME guard-RESOURCE_GROUP guard-CONTAINER_APP_NAME acr-login
-
-deploy-back:
-	docker build -t $(IMAGE_NAME) ./backend
-	docker tag $(IMAGE_NAME) $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(IMAGE_TAG)
-	docker push $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(IMAGE_TAG)
+deploy-back: guard-RESOURCE_GROUP guard-CONTAINER_APP_NAME
+	docker build -t ghcr.io/jeykersalinas/awesome-ai-profile-api:latest ./backend
+	docker push ghcr.io/jeykersalinas/awesome-ai-profile-api:latest
 	az containerapp update \
 		--name $(CONTAINER_APP_NAME) \
 		--resource-group $(RESOURCE_GROUP) \
-		--image $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(IMAGE_TAG)
+		--image ghcr.io/jeykersalinas/awesome-ai-profile-api:latest
+
 
 logs-back: guard-RESOURCE_GROUP guard-CONTAINER_APP_NAME
 	az containerapp logs show \
