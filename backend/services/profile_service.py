@@ -26,6 +26,7 @@ def get_profile(profile_id: str = "jeyker") -> ProfessionalProfile:
 
 def initial_greeting(locale: str, profile_id: str = "jeyker") -> str:
     profile = get_profile(profile_id)
+    name = "Jeyker" if profile.id == "jeyker" else profile.candidate_name
     if locale == "es":
-        return f"Hola, soy {profile.assistant_name}, asistente profesional de {profile.candidate_name}."
-    return f"Hi, I'm {profile.assistant_name}, {profile.candidate_name}'s professional assistant."
+        return f"Hola, soy {profile.assistant_name}, asistente profesional de {name}."
+    return f"Hi, I'm {profile.assistant_name}, {name}'s professional assistant."

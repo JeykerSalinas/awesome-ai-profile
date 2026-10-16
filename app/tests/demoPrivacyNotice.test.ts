@@ -15,7 +15,9 @@ const locale = readFileSync(
 test("the demo notice is persisted after the visitor acknowledges it", () => {
   assert.match(app, /django-demo-notice-v1-acknowledged/);
   assert.match(app, /:open="!hasAcknowledgedDemoNotice"/);
-  assert.match(app, /@accept="hasAcknowledgedDemoNotice = true"/);
+  assert.match(app, /@accept="acceptDemoPrivacyNotice"/);
+  assert.match(app, /hasAcknowledgedDemoNotice\.value = true/);
+  assert.match(app, /profileStorageKey\("django-demo-notice-v1-acknowledged"\)/);
 });
 
 test("the first-visit notice cannot be dismissed without acknowledgement", () => {
