@@ -1,3 +1,4 @@
+import { applyProfileTheme } from './config/profile'
 import './assets/css/main.css'
 
 import { createApp } from 'vue'
@@ -7,6 +8,7 @@ import App from './App.vue'
 import router from './router'
 import { analyticsEnabled, captureException, initAnalytics } from './services/analytics'
 
+applyProfileTheme()
 initAnalytics()
 
 const app = createApp(App)

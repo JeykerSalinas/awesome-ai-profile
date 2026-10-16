@@ -6,6 +6,7 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from services.profile_service import get_profile
 
 
 KnowledgeSection = Literal["profile", "experience", "education", "skills", "projects"]
@@ -82,16 +83,17 @@ def _query_terms(query: str) -> set[str]:
 
 
 @lru_cache(maxsize=None)
-def _load_json(relative_path: str) -> dict[str, object]:
-    path = (KNOWLEDGE_ROOT / relative_path).resolve()
+def _load_json(relative_path: str, profile_id: str = "jeyker") -> dict[str, object]:
+    root = get_profile(profile_id).knowledge_root
+    path = (root / relative_path).resolve()
 
-    if not path.is_relative_to(KNOWLEDGE_ROOT):
+    if not path.is_relative_to(root):
         raise ValueError("Knowledge paths must stay inside the knowledge directory.")
 
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def get_profile_section_data(section: str) -> dict[str, object]:
+def get_profile_section_data(section: str, profile_id: str = "jeyker") -> dict[str, object]:
     relative_path = SECTION_FILES.get(section)
 
     if relative_path is None:
@@ -101,14 +103,15 @@ def get_profile_section_data(section: str) -> dict[str, object]:
     return {
         "section": section,
         "source": f"knowledge/{relative_path}",
-        "data": _load_json(relative_path),
+        "data": _load_json(relative_path, profile_id),
     }
 
 
-def _project_document(relative_path: str) -> str:
-    path = (KNOWLEDGE_ROOT / relative_path).resolve()
+def _project_document(relative_path: str, profile_id: str = "jeyker") -> str:
+    root = get_profile(profile_id).knowledge_root
+    path = (root / relative_path).resolve()
 
-    if not path.is_relative_to(KNOWLEDGE_ROOT):
+    if not path.is_relative_to(root):
         raise ValueError("Project documents must stay inside the knowledge directory.")
 
     return path.read_text(encoding="utf-8")
@@ -133,14 +136,14 @@ def _score_candidate(candidate: dict[str, object], terms: set[str]) -> int:
     return score
 
 
-def search_professional_experience(query: str, limit: int = 4) -> dict[str, object]:
+def search_professional_experience(query: str, limit: int = 4, profile_id: str = "jeyker") -> dict[str, object]:
     terms = _query_terms(query)
 
     if not terms:
         return {"query": query, "results": [], "count": 0}
 
-    experience = get_profile_section_data("experience")["data"]
-    projects = get_profile_section_data("projects")["data"]
+    experience = get_profile_section_data("experience", profile_id)["data"]
+    projects = get_profile_section_data("projects", profile_id)["data"]
     candidates: list[dict[str, object]] = []
 
     for position in experience["positions"]:
@@ -175,7 +178,7 @@ def search_professional_experience(query: str, limit: int = 4) -> dict[str, obje
                 "summary": project["summary"],
                 "technologies": project["technologies"],
                 "source": f"knowledge/{project['document']}",
-                "content": _project_document(project["document"]),
+                "content": _project_document(project["document"], profile_id),
             }
         )
 

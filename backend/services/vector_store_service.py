@@ -18,6 +18,7 @@ from pypdf import PdfReader
 
 from schemas.documents import DocumentType, DocumentUploadResponse
 from settings import get_settings
+from services.profile_service import get_profile
 
 
 KNOWLEDGE_ROOT = Path(__file__).resolve().parent.parent / "knowledge"
@@ -34,7 +35,9 @@ class EmptyDocumentError(ValueError):
 class VectorStoreService:
     """Ingest heterogeneous documents and retrieve semantically related chunks."""
 
-    def __init__(self) -> None:
+    def __init__(self, profile_id: str = "jeyker") -> None:
+        profile = get_profile(profile_id)
+        self.knowledge_root = profile.knowledge_root
         settings = get_settings()
         if not settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY is not configured.")
@@ -46,13 +49,13 @@ class VectorStoreService:
             google_api_key=settings.google_api_key,
         )
         self.profile_store = Chroma(
-            collection_name=PROFILE_COLLECTION_NAME,
+            collection_name=PROFILE_COLLECTION_NAME if profile.id == "jeyker" else f"{PROFILE_COLLECTION_NAME}_{profile.id}",
             embedding_function=embeddings,
             persist_directory=str(persist_directory),
             collection_metadata={"hnsw:space": "cosine"},
         )
         self.upload_store = Chroma(
-            collection_name=UPLOAD_COLLECTION_NAME,
+            collection_name=UPLOAD_COLLECTION_NAME if profile.id == "jeyker" else f"{UPLOAD_COLLECTION_NAME}_{profile.id}",
             embedding_function=embeddings,
             client=chromadb.EphemeralClient(),
             collection_metadata={"hnsw:space": "cosine"},
@@ -72,7 +75,7 @@ class VectorStoreService:
         documents: list[Document] = []
         ids: list[str] = []
 
-        for path in sorted(KNOWLEDGE_ROOT.rglob("*")):
+        for path in sorted(self.knowledge_root.rglob("*")):
             if path.suffix not in {".json", ".md"} or path.name == "README.md":
                 continue
 
@@ -80,7 +83,7 @@ class VectorStoreService:
             if path.suffix == ".json":
                 raw_text = json.dumps(json.loads(raw_text), ensure_ascii=False, indent=2)
 
-            relative_source = f"knowledge/{path.relative_to(KNOWLEDGE_ROOT).as_posix()}"
+            relative_source = f"knowledge/{path.relative_to(self.knowledge_root).as_posix()}"
             content_hash = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()[:16]
             chunks = self.splitter.split_text(raw_text)
             for index, chunk in enumerate(chunks):
@@ -198,6 +201,6 @@ class VectorStoreService:
                 del self.upload_expirations[document_id]
 
 
-@lru_cache(maxsize=1)
-def get_vector_store_service() -> VectorStoreService:
-    return VectorStoreService()
+@lru_cache(maxsize=2)
+def get_vector_store_service(profile_id: str = "jeyker") -> VectorStoreService:
+    return VectorStoreService(profile_id)

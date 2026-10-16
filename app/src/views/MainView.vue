@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useTemplateRef } from "vue";
+import { activeProfile, profileStorageKey } from "@/config/profile";
 import { useChat } from "@ai-sdk/vue";
 import { useDark, useEventListener, useStorage } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
@@ -35,9 +36,9 @@ const pendingUpload = ref<Promise<void> | null>(null);
 const requestDocumentIds = ref<string[]>([]);
 const uploadError = ref("");
 const isDark = useDark();
-const hasSeenTour = useStorage("django-tour-seen", false);
-const hasCompletedTour = useStorage("django-tour-completed", false);
-const hasTriedLivePrompt = useStorage("django-live-prompt-seen", false);
+const hasSeenTour = useStorage(profileStorageKey("django-tour-seen"), false);
+const hasCompletedTour = useStorage(profileStorageKey("django-tour-completed"), false);
+const hasTriedLivePrompt = useStorage(profileStorageKey("django-live-prompt-seen"), false);
 const hasInteractedSinceLoad = ref(false);
 const { locale, text } = useLocale();
 const suggestionIcons = [
@@ -72,6 +73,7 @@ const {
     api: `${apiBaseUrl}/chat/stream`,
     body: () => ({
       locale: locale.value,
+      profile_id: activeProfile.id,
       documents: requestDocumentIds.value,
     }),
   }),
@@ -117,7 +119,7 @@ const liveHistory = computed(() =>
 
 async function deleteUploadedDocument(documentId: string) {
   try {
-    await fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}`, {
+    await fetch(`${apiBaseUrl}/documents/${encodeURIComponent(documentId)}?profile_id=${activeProfile.id}`, {
       method: "DELETE",
     });
   } catch {
@@ -231,7 +233,7 @@ async function uploadDocument(event: Event) {
     const payload = new FormData();
     payload.append("file", file);
     payload.append("document_type", "other");
-    const response = await fetch(`${apiBaseUrl}/documents`, {
+    const response = await fetch(`${apiBaseUrl}/documents?profile_id=${activeProfile.id}`, {
       method: "POST",
       body: payload,
     });
@@ -305,15 +307,17 @@ useEventListener(window, "keydown", stopTourPulse);
       >
         <div data-tour="identity" class="flex min-w-0 items-center gap-3">
           <img
-            src="/django_design/django-app-icon-dark.svg"
-            alt="Django, Jeyker's AI assistant"
+            v-if="activeProfile.logo"
+            :src="activeProfile.logo"
+            :alt="activeProfile.assistantName"
             class="size-11 rounded-[5px]"
           />
+          <span v-if="!activeProfile.logo" class="grid size-11 shrink-0 place-items-center rounded-[5px] bg-primary/10 text-xl font-semibold text-primary" aria-hidden="true">{{ activeProfile.assistantName.charAt(0) }}</span>
           <div>
             <p
               class="text-sm font-semibold tracking-tight text-(--django-heading)"
             >
-              Django AI
+              {{ activeProfile.assistantName }} AI
             </p>
             <p class="hidden text-xs text-(--django-muted) sm:block">
               {{ text.assistantDescription }}
@@ -366,10 +370,12 @@ useEventListener(window, "keydown", stopTourPulse);
             class="mx-auto mb-7 grid size-20 place-items-center rounded-[1.75rem] bg-(--django-surface-soft)"
           >
             <img
-              src="/django_design/django-app-icon-dark.svg"
-              alt="Django"
+              v-if="activeProfile.logo"
+            :src="activeProfile.logo"
+              :alt="activeProfile.assistantName"
               class="size-14"
             />
+            <span v-else class="text-4xl font-semibold text-primary" aria-hidden="true">{{ activeProfile.assistantName.charAt(0) }}</span>
           </div>
           <h1
             class="text-balance text-4xl font-semibold tracking-tight text-(--django-heading) sm:text-5xl"
@@ -417,8 +423,8 @@ useEventListener(window, "keydown", stopTourPulse);
             :status="status"
             :assistant="{
               avatar: {
-                src: isDark ? '/django_design/django-isotype-inverse.svg':'/django_design/django-isotype.svg',
-                alt: 'Django',
+                src: (isDark ? activeProfile.avatarDark : activeProfile.avatar) || undefined,
+                alt: activeProfile.assistantName,
               },
             }"
             class="flex-1"

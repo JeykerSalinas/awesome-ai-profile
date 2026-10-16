@@ -1,4 +1,5 @@
 from typing import Literal
+from services.profile_service import ProfileId
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,7 @@ class LiveHistoryMessage(BaseModel):
 
 class LiveSessionStart(BaseModel):
     type: Literal["start"]
+    profile_id: ProfileId = "jeyker"
     locale: SupportedLocale = "en"
     documents: list[str] = Field(default_factory=list, max_length=10)
     history: list[LiveHistoryMessage] = Field(default_factory=list, max_length=20)

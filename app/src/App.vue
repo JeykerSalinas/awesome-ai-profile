@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { profileStorageKey } from "@/config/profile"
 import { RouterView } from 'vue-router'
 import { useStorage } from '@vueuse/core'
 
@@ -8,7 +9,7 @@ import { captureEvent } from '@/services/analytics'
 
 const { uiLocale } = useLocale()
 const hasAcknowledgedDemoNotice = useStorage(
-  'django-demo-notice-v1-acknowledged',
+  profileStorageKey("django-demo-notice-v1-acknowledged"),
   false,
 )
 

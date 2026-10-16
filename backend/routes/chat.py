@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def chat(request: ChatRequest, http_request: Request) -> ChatResponse | PlainTextResponse:
     request_id = http_request.state.request_id
     try:
-        message = await generate_response(request.message, request.locale)
+        message = await generate_response(request.message, request.locale, request.profile_id)
     except Exception as exc:
         public_error = classify_chat_error(exc)
         logger.error(
@@ -44,7 +44,7 @@ async def stream_chat(
     http_request: Request,
 ) -> Response:
     request_id = http_request.state.request_id
-    stream = generate_response_stream(request.to_agent_messages(), request.locale, request.documents)
+    stream = generate_response_stream(request.to_agent_messages(), request.locale, request.documents, request.profile_id)
 
     try:
         first_chunk = await anext(stream)

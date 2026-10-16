@@ -1,3 +1,4 @@
+import { activeProfile, personalize, profileStorageKey } from "@/config/profile";
 import { computed, watchEffect } from "vue";
 import { en, es } from "@nuxt/ui/locale";
 import { useStorage } from "@vueuse/core";
@@ -176,7 +177,7 @@ const browserLanguages =
     : [navigator.language];
 
 const locale = useStorage<SupportedLocale>(
-  "django-preferred-language",
+  profileStorageKey("django-preferred-language"),
   resolveBrowserLocale(browserLanguages)
 );
 
@@ -188,7 +189,16 @@ if (typeof document !== "undefined") {
 }
 
 export function useLocale() {
-  const text = computed(() => translations[locale.value]);
+  const text = computed(() => {
+    const copy = personalize(translations[locale.value]);
+    if (activeProfile.id === "sara") {
+      return { ...copy,
+        introduction: locale.value === "es" ? "Conversa con Sara sobre su perfil profesional. Su información se incorporará próximamente." : "Talk with Sara about her professional profile. Verified information will be added soon.",
+        candidateRole: locale.value === "es" ? "Perfil profesional" : "Professional profile",
+      };
+    }
+    return copy;
+  });
   const uiLocale = computed(() => (locale.value === "es" ? es : en));
 
   return { locale, text, uiLocale };
