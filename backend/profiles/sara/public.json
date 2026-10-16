@@ -1,0 +1,36 @@
+{
+  "id": "sara",
+  "assistantName": "Sara",
+  "candidateName": "Sara",
+  "logo": "/sara_design/sara_logo.jpeg",
+  "avatar": null,
+  "avatarDark": null,
+  "texts": {
+    "en": {
+      "introduction": "Talk with Sara about her professional profile. Verified information will be added soon.",
+      "candidateRole": "Professional profile",
+      "documentTitle": "Sara · Professional assistant",
+      "availableForWork": "Professional profile",
+      "suggestions.0": "What is Sara’s experience?",
+      "suggestions.1": "What verified information is available?",
+      "suggestions.2": "How can I contact Sara?",
+      "demoNoticePurpose": "This assistant lets you explore Sara’s professional profile."
+    },
+    "es": {
+      "introduction": "Conversa con Sara sobre su perfil profesional. Su información se incorporará próximamente.",
+      "candidateRole": "Perfil profesional",
+      "documentTitle": "Sara · Asistente profesional",
+      "availableForWork": "Perfil profesional",
+      "suggestions.0": "¿Cuál es la experiencia de Sara?",
+      "suggestions.1": "¿Qué información verificada hay disponible?",
+      "suggestions.2": "¿Cómo puedo contactar a Sara?",
+      "demoNoticePurpose": "Este asistente permite explorar el perfil profesional de Sara."
+    }
+  },
+  "features": {
+    "tour": false
+  },
+  "colors": {
+    "--color-django-red": "#ec4899"
+  }
+}

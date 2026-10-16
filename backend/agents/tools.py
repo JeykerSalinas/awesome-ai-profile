@@ -44,11 +44,19 @@ def build_profile_tools(profile_id: str = "jeyker"):
     tools = [get_contact_details, get_profile_section, search_experience]
     if profile.photo:
         tools.append(get_candidate_photo)
-    return tools
+    return [item for item in tools if profile.tool_enabled(item.name)]
 
 # Compatibility exports for callers using the original default profile.
 _default_tools = {item.name: item for item in build_profile_tools()}
-get_contact_details = _default_tools["get_contact_details"]
-get_candidate_photo = _default_tools["get_candidate_photo"]
-get_profile_section = _default_tools["get_profile_section"]
-search_experience = _default_tools["search_experience"]
+get_contact_details = _default_tools.get("get_contact_details")
+get_candidate_photo = _default_tools.get("get_candidate_photo")
+get_profile_section = _default_tools.get("get_profile_section")
+search_experience = _default_tools.get("search_experience")
+
+
+def build_agent_tools(document_ids=None, profile_id="jeyker"):
+    profile = get_profile(profile_id)
+    tools = build_profile_tools(profile_id)
+    if profile.tool_enabled("search_documents"):
+        tools.append(build_search_documents_tool(document_ids if profile.public.features.documents else [], profile_id))
+    return tools

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import PlainTextResponse, StreamingResponse
 
 from schemas.chat import ChatRequest, ChatResponse, ChatStreamRequest
+from services.profile_service import require_feature
 from services.agents_service import generate_response, generate_response_stream
 from services.ai_sdk_stream import stream_ui_messages
 from services.chat_error_service import classify_chat_error, diagnostic_summary
@@ -44,6 +45,8 @@ async def stream_chat(
     http_request: Request,
 ) -> Response:
     request_id = http_request.state.request_id
+    if request.documents:
+        require_feature(request.profile_id, "documents")
     stream = generate_response_stream(request.to_agent_messages(), request.locale, request.documents, request.profile_id)
 
     try:
