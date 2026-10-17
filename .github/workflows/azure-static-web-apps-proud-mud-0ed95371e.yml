@@ -17,6 +17,7 @@ jobs:
     name: Build and Deploy Job
     env:
       VITE_API_BASE_URL: https://awesome-ai-profile-api.orangepond-66261a43.spaincentral.azurecontainerapps.io
+      VITE_PROFILE_ID: ${{ vars.VITE_PROFILE_ID || 'jeyker' }}
     permissions:
        id-token: write
        contents: read

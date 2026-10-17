@@ -110,7 +110,7 @@ Ejemplo de `services` privado en `sara/agent.json`:
 }
 ```
 
-Inyecta `SARA_GOOGLE_API_KEY` en el entorno del proceso del backend (por ejemplo, mediante un secreto de Azure Container Apps). Guarda solo el **nombre** de la variable en Git. No uses una variable `VITE_*` para secretos. Si se declara una variable específica y falta o está vacía, la petición falla; nunca toma silenciosamente la clave compartida. Para desarrollo local, exporta la variable antes de arrancar el backend.
+Inyecta `SARA_GOOGLE_API_KEY` en el entorno del proceso del backend (por ejemplo, crea un secreto y su referencia como variable de entorno en Azure Container Apps, guarda la nueva revisión y espera a que quede activa). Guarda solo el **nombre** de la variable en Git. No uses una variable `VITE_*` para secretos. Si se declara una variable específica y falta o está vacía, la petición falla; nunca toma silenciosamente la clave compartida. Para desarrollo local, exporta la variable antes de arrancar el backend.
 
 Con `google_api_key_env: null` se usa `GOOGLE_API_KEY`. Los campos de almacenamiento, embeddings y voz en `null` usan los ajustes globales existentes. La clave seleccionada se aplica al chat, voz y embeddings. `chat_model` usa el valor común configurado. Los límites de PDF, TTL y turnos continúan siendo globales en `settings.py`.
 
@@ -129,7 +129,7 @@ VITE_PROFILE_ID=jeyker npm run build
 VITE_PROFILE_ID=sara npm run build
 ```
 
-Cada build produce `app/dist`; publícalos por separado en sus respectivas Static Web Apps, con su propio token de despliegue. Para desarrollo usa `VITE_PROFILE_ID=sara npm run dev`. Agrega ambos orígenes a `CORS_ALLOW_ORIGINS` y a la política CORS del ingress de Container Apps, si existe. Publica el backend con los archivos actualizados y luego los frontends compatibles.
+Cada build produce `app/dist`; publícalos por separado en sus respectivas Static Web Apps, con su propio token de despliegue. El workflow existente de `proud-mud` ahora toma `VITE_PROFILE_ID` desde una **variable de repositorio** en GitHub Actions y usa `jeyker` si no está definida. Configúrala en GitHub → Settings → Secrets and variables → Actions → Variables y vuelve a ejecutar el workflow: Vite necesita el valor durante la compilación; cambiar las variables de Static Web Apps después del build no modifica el bundle. Para dos instancias simultáneas crea un workflow y recurso Static Web App adicionales para Sara, con `VITE_PROFILE_ID=sara` y su propio token. Para desarrollo usa `VITE_PROFILE_ID=sara npm run dev`. Agrega ambos orígenes a `CORS_ALLOW_ORIGINS` y a la política CORS del ingress de Container Apps, si existe. Publica el backend con los archivos actualizados y luego los frontends compatibles.
 
 Este PR prepara ambas configuraciones, pero no crea recursos Azure, claves ni un segundo workflow de producción. Los perfiles son públicos: `profile_id` es selección de configuración, **no autenticación**. Un visitante puede seleccionar cualquiera de los perfiles admitidos. Las preferencias de navegador y el uso local de voz están separados por perfil; se conservan las claves antiguas de Jeyker.
 
