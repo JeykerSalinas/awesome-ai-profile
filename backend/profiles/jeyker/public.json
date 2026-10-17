@@ -1,0 +1,8 @@
+{
+  "id": "jeyker",
+  "assistantName": "Django",
+  "candidateName": "Jeyker",
+  "logo": "/django_design/django-app-icon-dark.svg",
+  "avatar": "/django_design/django-isotype.svg",
+  "avatarDark": "/django_design/django-isotype-inverse.svg"
+}

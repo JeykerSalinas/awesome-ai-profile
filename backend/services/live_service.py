@@ -16,6 +16,7 @@ from services.live_tools_service import (
 )
 from services.prompt_service import SupportedLocale, build_professional_system_prompt
 from settings import get_settings
+from services.profile_service import profile_settings
 from services.profile_service import initial_greeting
 
 
@@ -102,12 +103,12 @@ def build_live_config(
     include_tools: bool = True,
     profile_id: str = "jeyker",
 ) -> types.LiveConnectConfig:
-    settings = get_settings()
+    settings = profile_settings(profile_id, get_settings())
     live_tools = build_live_tools(document_ids, profile_id)
     return types.LiveConnectConfig(
         response_modalities=[types.Modality.AUDIO],
         system_instruction=build_professional_system_prompt(locale, profile_id),
-        tools=[build_live_tool_config(live_tools)] if include_tools else None,
+        tools=[build_live_tool_config(live_tools)] if include_tools and live_tools else None,
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
         speech_config=types.SpeechConfig(
@@ -247,7 +248,13 @@ async def run_live_session(
     history: list[dict[str, str]] | None = None,
     profile_id: str = "jeyker",
 ) -> None:
-    settings = get_settings()
+    try:
+        settings = profile_settings(profile_id, get_settings())
+    except ValueError as exc:
+        raise LiveServiceError(
+            "The profile's API key is not configured.",
+            code="configuration_error", stage="configuration",
+        ) from exc
     if not settings.google_api_key:
         raise LiveServiceError(
             "GOOGLE_API_KEY is not configured.",
