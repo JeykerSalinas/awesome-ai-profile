@@ -1,0 +1,17 @@
+{
+  "allowed_tools": [
+    "get_contact_details",
+    "get_candidate_photo",
+    "get_profile_section",
+    "search_experience",
+    "search_documents"
+  ],
+  "services": {
+    "google_api_key_env": null,
+    "vector_store_path": null,
+    "chat_model": "gemini-3.1-flash-lite",
+    "embedding_model": null,
+    "live_model": null,
+    "live_voice": null
+  }
+}

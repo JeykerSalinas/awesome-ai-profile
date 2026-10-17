@@ -6,7 +6,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from schemas.documents import DocumentType, DocumentUploadResponse
 from services.vector_store_service import EmptyDocumentError, get_vector_store_service
 from settings import get_settings
-from services.profile_service import ProfileId
+from services.profile_service import ProfileId, require_feature
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -18,6 +18,7 @@ def upload_document(
     document_type: Annotated[DocumentType, Form()] = "other",
     profile_id: ProfileId = "jeyker",
 ) -> DocumentUploadResponse:
+    require_feature(profile_id, "documents")
     settings = get_settings()
     max_bytes = settings.max_pdf_size_mb * 1024 * 1024
     content = file.file.read(max_bytes + 1)
@@ -37,5 +38,6 @@ def upload_document(
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_document(document_id: str, profile_id: ProfileId = "jeyker") -> None:
+    require_feature(profile_id, "documents")
     if not get_vector_store_service(profile_id).remove_upload(document_id):
         raise HTTPException(status_code=404, detail="Document was not found or has already expired.")

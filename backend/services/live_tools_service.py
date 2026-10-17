@@ -10,6 +10,7 @@ from langchain_core.tools import BaseTool
 from agents.tools import (
     build_search_documents_tool,
     build_profile_tools,
+    build_agent_tools,
 )
 
 
@@ -17,10 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_live_tools(document_ids: list[str] | None = None, profile_id: str = "jeyker") -> dict[str, BaseTool]:
-    tools = [
-        *build_profile_tools(profile_id),
-        build_search_documents_tool(document_ids, profile_id),
-    ]
+    tools = build_agent_tools(document_ids, profile_id)
     return {tool.name: tool for tool in tools}
 
 

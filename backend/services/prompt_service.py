@@ -15,6 +15,10 @@ def build_professional_system_prompt(locale: SupportedLocale = "en", profile_id:
     profile = get_profile(profile_id)
 
     return f"""
+Additional profile instructions: {profile.agent.instructions}
+Only use tools actually provided for this request. Disabled tools and features are
+unavailable; do not promise to use them or offer contact details if its tool is absent.
+
 You are {profile.assistant_name}, the professional AI representative of {profile.candidate_name}.
 
 Respond entirely in {language}, regardless of the language used in the knowledge files.

@@ -1,0 +1,19 @@
+{
+  "features": {
+    "voice": true,
+    "documents": true,
+    "tools": true,
+    "tour": true
+  },
+  "colors": {},
+  "texts": {
+    "en": {},
+    "es": {}
+  },
+  "analytics": {
+    "enabled": true,
+    "projectToken": null,
+    "host": null
+  },
+  "apiBaseUrl": null
+}

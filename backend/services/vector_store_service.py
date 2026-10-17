@@ -18,6 +18,7 @@ from pypdf import PdfReader
 
 from schemas.documents import DocumentType, DocumentUploadResponse
 from settings import get_settings
+from services.profile_service import profile_settings
 from services.profile_service import get_profile
 
 
@@ -38,7 +39,7 @@ class VectorStoreService:
     def __init__(self, profile_id: str = "jeyker") -> None:
         profile = get_profile(profile_id)
         self.knowledge_root = profile.knowledge_root
-        settings = get_settings()
+        settings = profile_settings(profile_id, get_settings())
         if not settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY is not configured.")
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent, nextTick, ref } from 'vue'
+import { profileCopy } from '@/config/profile'
 import { useLocale } from '@/composables/useLocale'
 import { appendTourQuestion, storyCopy } from '@/features/tour/story'
 import { captureEvent } from '@/services/analytics'
@@ -33,7 +34,7 @@ async function prepareQuestion(question: string) {
   // Clear first so repeated preparations are announced too.
   announcement.value = ''
   await nextTick()
-  announcement.value = storyCopy[locale.value].draftReady
+  announcement.value = profileCopy(storyCopy[locale.value], locale.value, 'tour').draftReady
   document
     .querySelector<HTMLTextAreaElement>('[data-tour="composer"] textarea')
     ?.focus()

@@ -249,3 +249,7 @@ awesome-ai-profile/
 4. Evidencia verificada por encima de respuestas impresionantes pero sin fundamento.
 5. Comportamiento observable sin exponer razonamiento privado ni secretos.
 6. Entrega incremental, documentación honesta y costes operativos controlados.
+
+## Configuración por perfiles
+
+`VITE_PROFILE_ID=jeyker` o `sara` selecciona el perfil al compilar. Identidad, textos, funciones, contexto, herramientas y servicios se configuran en `backend/profiles/`. Consulta la [guía de perfiles](docs/profiles.md) para configurar ambas instancias, sus claves y sus despliegues.
