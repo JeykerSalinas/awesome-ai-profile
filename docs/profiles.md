@@ -21,7 +21,7 @@ El frontend importa exclusivamente los archivos `public.json`; no importa `agent
 
 Edita `public.json` del perfil. `assistantName` es el nombre del asistente, `candidateName` el nombre corto de la persona. `logo` configura el logotipo y favicon; `avatar` y `avatarDark` configuran los avatares. Con `null` se muestra la inicial. Guarda nuevos recursos en `app/public/profiles/<id>/` y usa rutas como `/profiles/sara/logo.svg`.
 
-Sara utiliza el logo añadido en `app/public/sara_design/sara_logo.jpeg` y un acento rosa; sus avatares permanecen como inicial hasta configurarlos. Para modificar colores, añade propiedades CSS en `colors`, por ejemplo:
+Sara utiliza el logo añadido en `app/public/sara_design/sara_logo.jpeg` y la paleta proporcionada por Sara (vino `#5B2D36`, beige piedra `#DCCFC2`, gris cálido `#A89F95`, azul noche `#2E3A4A` y crema `#F3EFE8`); sus avatares permanecen como inicial hasta configurarlos. Para modificar colores, añade propiedades CSS en `colors`, por ejemplo:
 
 ```json
 {
@@ -33,7 +33,7 @@ Sara utiliza el logo añadido en `app/public/sara_design/sara_logo.jpeg` y un ac
 }
 ```
 
-Los nombres históricos de las variables se mantienen por compatibilidad. Consulta `app/src/assets/css/main.css` para ver todos los tokens. Los colores base alimentan los modos claro y oscuro; un override directo de `--django-page`, por ejemplo, se aplica a ambos modos.
+Los nombres históricos de las variables se mantienen por compatibilidad. Consulta `app/src/assets/css/main.css` para ver todos los tokens. Los colores base alimentan los modos claro y oscuro. Las variables `--profile-light-*` y `--profile-dark-*` permiten configurar `page`, `surface`, `surface-soft`, `heading`, `copy`, `muted`, `border` y `primary` por modo; Sara las utiliza para mantener texto legible. Sombras, halos y gradientes también consumen los colores del perfil; un override directo de `--django-page`, por ejemplo, se aplica a ambos modos.
 
 `texts.en` y `texts.es` permiten reemplazar textos de la interfaz. Sus claves corresponden a `app/src/composables/useLocale.ts`. Las listas usan índices y el tour usa prefijos:
 

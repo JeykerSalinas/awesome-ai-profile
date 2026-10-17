@@ -13,26 +13,27 @@
 }
 
 :root {
-  --ui-primary: var(--color-django-red);
+  --ui-primary: var(--profile-light-primary, var(--color-django-red));
   --ui-container: 76rem;
-  --django-page: var(--color-django-cream);
-  --django-surface: #fff8e8;
-  --django-surface-soft: var(--color-django-paper);
-  --django-heading: var(--color-django-brown);
-  --django-copy: var(--color-django-burgundy);
-  --django-muted: #816a4d;
-  --django-border: var(--color-django-sand);
+  --django-page: var(--profile-light-page, var(--color-django-cream));
+  --django-surface: var(--profile-light-surface, #fff8e8);
+  --django-surface-soft: var(--profile-light-surface-soft, var(--color-django-paper));
+  --django-heading: var(--profile-light-heading, var(--color-django-brown));
+  --django-copy: var(--profile-light-copy, var(--color-django-burgundy));
+  --django-muted: var(--profile-light-muted, #816a4d);
+  --django-border: var(--profile-light-border, var(--color-django-sand));
   color-scheme: light;
 }
 
 html.dark {
-  --django-page: var(--color-django-brown);
-  --django-surface: var(--color-django-burgundy);
-  --django-surface-soft: #41100e;
-  --django-heading: var(--color-django-cream);
-  --django-copy: var(--color-django-paper);
-  --django-muted: var(--color-django-sand);
-  --django-border: #75312a;
+  --ui-primary: var(--profile-dark-primary, var(--color-django-red));
+  --django-page: var(--profile-dark-page, var(--color-django-brown));
+  --django-surface: var(--profile-dark-surface, var(--color-django-burgundy));
+  --django-surface-soft: var(--profile-dark-surface-soft, #41100e);
+  --django-heading: var(--profile-dark-heading, var(--color-django-cream));
+  --django-copy: var(--profile-dark-copy, var(--color-django-paper));
+  --django-muted: var(--profile-dark-muted, var(--color-django-sand));
+  --django-border: var(--profile-dark-border, #75312a);
   color-scheme: dark;
 }
 
@@ -46,8 +47,8 @@ body {
   margin: 0;
   color: var(--django-copy);
   background:
-    radial-gradient(circle at 8% 10%, rgb(229 109 88 / 12%), transparent 32%),
-    radial-gradient(circle at 90% 12%, rgb(235 8 8 / 7%), transparent 25%),
+    radial-gradient(circle at 8% 10%, color-mix(in srgb, var(--color-django-terracotta) 12%, transparent), transparent 32%),
+    radial-gradient(circle at 90% 12%, color-mix(in srgb, var(--color-django-red) 7%, transparent), transparent 25%),
     var(--django-page);
   transition: color 180ms ease, background-color 180ms ease;
 }

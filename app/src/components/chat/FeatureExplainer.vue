@@ -63,8 +63,8 @@ function toggleExplanation() {
 .feature-step { display: grid; place-items: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0; background: var(--django-surface-soft); border-radius: 50%; color: var(--ui-primary); font-size: 0.7rem; font-weight: 600; }
 .feature-source { display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.875rem; color: var(--ui-primary); text-decoration: underline; text-underline-offset: 3px; }
 @keyframes feature-prompt-pulse {
-  0%, 100% { box-shadow: inset 0 0 0 0 rgb(229 109 88 / 0); }
-  50% { box-shadow: inset 0 0 0 2px rgb(229 109 88 / 35%), 0 0 0 5px rgb(229 109 88 / 8%); }
+  0%, 100% { box-shadow: inset 0 0 0 0 color-mix(in srgb, var(--color-django-terracotta) 0%, transparent); }
+  50% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-django-terracotta) 35%, transparent), 0 0 0 5px color-mix(in srgb, var(--color-django-terracotta) 8%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .feature-button--pulsing { animation: none; }

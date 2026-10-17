@@ -637,7 +637,7 @@ onBeforeUnmount(() => stopConversation());
   border: 1px solid var(--django-border);
   border-radius: 5px;
   background: color-mix(in srgb, var(--django-surface) 94%, transparent);
-  box-shadow: 0 20px 55px rgb(50 8 8 / 24%);
+  box-shadow: 0 20px 55px color-mix(in srgb, var(--color-django-brown) 24%, transparent);
   backdrop-filter: blur(16px);
 }
 
@@ -647,7 +647,7 @@ onBeforeUnmount(() => stopConversation());
 
 .live-trigger {
   border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
-  box-shadow: 0 8px 22px rgb(50 8 8 / 9%);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--color-django-brown) 9%, transparent);
 }
 
 .live-orb {
@@ -661,7 +661,7 @@ onBeforeUnmount(() => stopConversation());
   border-radius: 999px;
   color: white;
   background: var(--color-django-red);
-  box-shadow: 0 0 0 8px rgb(235 8 8 / 10%);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-django-red) 10%, transparent);
 }
 
 .live-orb span {
@@ -685,8 +685,8 @@ onBeforeUnmount(() => stopConversation());
 }
 
 @keyframes live-trigger-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(229 109 88 / 0); }
-  50% { transform: scale(1.025); box-shadow: 0 0 0 6px rgb(229 109 88 / 12%); }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-django-terracotta) 0%, transparent); }
+  50% { transform: scale(1.025); box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-django-terracotta) 12%, transparent); }
 }
 
 .live-panel-enter-active,
