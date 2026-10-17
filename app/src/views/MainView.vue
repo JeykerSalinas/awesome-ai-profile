@@ -301,7 +301,7 @@ useEventListener(window, "keydown", stopTourPulse);
 <template>
   <main class="min-h-dvh px-3 py-3 sm:px-6 sm:py-5">
     <section
-      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl max-h-1 flex-col overflow-hidden rounded-[5px] border border-(--django-border) bg-(--django-surface) shadow-[0_28px_100px_-45px_rgba(50,8,8,0.35)] transition-colors sm:min-h-[calc(100dvh-2.5rem)]"
+      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl max-h-1 flex-col overflow-hidden rounded-[5px] border border-(--django-border) bg-(--django-surface) shadow-[0_28px_100px_-45px_color-mix(in_srgb,var(--color-django-brown)_35%,transparent)] transition-colors sm:min-h-[calc(100dvh-2.5rem)]"
     >
       <header
         class="flex items-center justify-between gap-3 border-b border-(--django-border) px-5 py-4 sm:px-8"

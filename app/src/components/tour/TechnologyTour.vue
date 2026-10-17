@@ -407,8 +407,8 @@ onBeforeUnmount(cleanup)
   border: 1px solid #ffba91;
   border-radius: 16px;
   box-shadow:
-    0 0 0 4px rgb(229 109 88 / 16%),
-    0 0 32px rgb(229 109 88 / 24%);
+    0 0 0 4px color-mix(in srgb, var(--color-django-terracotta) 16%, transparent),
+    0 0 32px color-mix(in srgb, var(--color-django-terracotta) 24%, transparent);
   transition:
     left 420ms ease,
     top 420ms ease,
@@ -450,7 +450,7 @@ onBeforeUnmount(cleanup)
   height: 6px;
   border-radius: 50%;
   background: var(--color-django-terracotta);
-  box-shadow: 0 0 0 4px rgb(229 109 88 / 12%);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-django-terracotta) 12%, transparent);
 }
 .tour-utilities {
   display: flex;
@@ -491,7 +491,7 @@ onBeforeUnmount(cleanup)
 }
 .tour-progress .is-current span {
   background: var(--ui-primary);
-  box-shadow: 0 0 8px rgb(235 8 8 / 20%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-django-red) 20%, transparent);
 }
 .tour-scroll {
   min-height: 0;
@@ -551,7 +551,7 @@ h2:focus {
   pointer-events: none;
   background: radial-gradient(
     ellipse at 90% 0%,
-    rgb(229 109 88 / 22%),
+    color-mix(in srgb, var(--color-django-terracotta) 22%, transparent),
     transparent 65%
   );
 }
@@ -801,7 +801,7 @@ a:focus-visible {
   }
   45% {
     border-color: #ffba91;
-    box-shadow: 0 0 16px rgb(229 109 88 / 24%);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--color-django-terracotta) 24%, transparent);
   }
 }
 @keyframes signal {

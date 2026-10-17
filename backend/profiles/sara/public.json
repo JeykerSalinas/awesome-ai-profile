@@ -31,6 +31,35 @@
     "tour": false
   },
   "colors": {
-    "--color-django-red": "#ec4899"
+    "--color-django-red": "#5B2D36",
+    "--color-django-brown": "#2E3A4A",
+    "--color-django-cream": "#F3EFE8",
+    "--color-django-sand": "#DCCFC2",
+    "--color-django-terracotta": "#A89F95",
+    "--color-django-burgundy": "#5B2D36",
+    "--color-django-paper": "#DCCFC2",
+    "--profile-light-page": "#DCCFC2",
+    "--profile-light-surface": "#F3EFE8",
+    "--profile-light-surface-soft": "#DCCFC2",
+    "--profile-light-heading": "#2E3A4A",
+    "--profile-light-copy": "#2E3A4A",
+    "--profile-light-muted": "#5B2D36",
+    "--profile-light-border": "#A89F95",
+    "--profile-light-primary": "#5B2D36",
+    "--profile-dark-page": "#2E3A4A",
+    "--profile-dark-surface": "#2E3A4A",
+    "--profile-dark-surface-soft": "#5B2D36",
+    "--profile-dark-heading": "#F3EFE8",
+    "--profile-dark-copy": "#F3EFE8",
+    "--profile-dark-muted": "#DCCFC2",
+    "--profile-dark-border": "#A89F95",
+    "--profile-dark-primary": "#DCCFC2",
+    "--ui-bg": "var(--django-surface)",
+    "--ui-bg-muted": "var(--django-surface-soft)",
+    "--ui-bg-elevated": "var(--django-surface-soft)",
+    "--ui-text": "var(--django-copy)",
+    "--ui-text-highlighted": "var(--django-heading)",
+    "--ui-text-muted": "var(--django-muted)",
+    "--ui-border": "var(--django-border)"
   }
 }
