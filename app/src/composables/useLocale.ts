@@ -1,4 +1,4 @@
-import { activeProfile, personalize, profileStorageKey } from "@/config/profile";
+import { profileCopy, profileStorageKey } from "@/config/profile";
 import { computed, watchEffect } from "vue";
 import { en, es } from "@nuxt/ui/locale";
 import { useStorage } from "@vueuse/core";
@@ -184,21 +184,12 @@ const locale = useStorage<SupportedLocale>(
 if (typeof document !== "undefined") {
   watchEffect(() => {
     document.documentElement.lang = locale.value;
-    document.title = translations[locale.value].documentTitle;
+    document.title = profileCopy(translations[locale.value], locale.value).documentTitle;
   });
 }
 
 export function useLocale() {
-  const text = computed(() => {
-    const copy = personalize(translations[locale.value]);
-    if (activeProfile.id === "sara") {
-      return { ...copy,
-        introduction: locale.value === "es" ? "Conversa con Sara sobre su perfil profesional. Su información se incorporará próximamente." : "Talk with Sara about her professional profile. Verified information will be added soon.",
-        candidateRole: locale.value === "es" ? "Perfil profesional" : "Professional profile",
-      };
-    }
-    return copy;
-  });
+  const text = computed(() => profileCopy(translations[locale.value], locale.value));
   const uiLocale = computed(() => (locale.value === "es" ? es : en));
 
   return { locale, text, uiLocale };

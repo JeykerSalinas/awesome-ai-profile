@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from schemas.live import LiveSessionStart
 from services.live_service import LiveServiceError, run_live_session
 from settings import get_settings
+from services.profile_service import get_profile
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,10 @@ async def live_conversation(websocket: WebSocket) -> None:
     await websocket.accept()
     try:
         start = LiveSessionStart.model_validate_json(await websocket.receive_text())
+        features = get_profile(start.profile_id).public.features
+        if not features.voice or (start.documents and not features.documents):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
         await run_live_session(
             websocket,
             start.locale,

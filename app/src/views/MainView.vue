@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useTemplateRef } from "vue";
-import { activeProfile, profileStorageKey } from "@/config/profile";
+import { activeProfile, profileStorageKey, apiBaseUrl } from "@/config/profile";
 import { useChat } from "@ai-sdk/vue";
 import { useDark, useEventListener, useStorage } from "@vueuse/core";
 import { DefaultChatTransport } from "ai";
@@ -19,7 +19,7 @@ import { captureEvent } from "@/services/analytics";
 import type { ProfileMessage } from "@/types/chat";
 import { parseChatError } from "@/utils/chatError";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
 const input = ref("");
 const technologyTour =
   useTemplateRef<InstanceType<typeof TechnologyTourHost>>("technologyTour");
@@ -212,6 +212,7 @@ function addLiveTranscript(update: LiveTranscriptUpdate) {
 }
 
 async function uploadDocument(event: Event) {
+  if (!activeProfile.features.documents) return;
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (!file) return;
@@ -300,7 +301,7 @@ useEventListener(window, "keydown", stopTourPulse);
 <template>
   <main class="min-h-dvh px-3 py-3 sm:px-6 sm:py-5">
     <section
-      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl max-h-1 flex-col overflow-hidden rounded-[5px] border border-(--django-border) bg-(--django-surface) shadow-[0_28px_100px_-45px_rgba(50,8,8,0.35)] transition-colors sm:min-h-[calc(100dvh-2.5rem)]"
+      class="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-6xl max-h-1 flex-col overflow-hidden rounded-[5px] border border-(--django-border) bg-(--django-surface) shadow-[0_28px_100px_-45px_color-mix(in_srgb,var(--color-django-brown)_35%,transparent)] transition-colors sm:min-h-[calc(100dvh-2.5rem)]"
     >
       <header
         class="flex items-center justify-between gap-3 border-b border-(--django-border) px-5 py-4 sm:px-8"
@@ -335,7 +336,7 @@ useEventListener(window, "keydown", stopTourPulse);
             />
             {{ text.availableForWork }}
           </UBadge>
-          <TechnologyTourLauncher
+          <TechnologyTourLauncher v-if="activeProfile.features.tour"
             variant="icon"
             @open="technologyTour?.openTour()"
           />
@@ -392,7 +393,7 @@ useEventListener(window, "keydown", stopTourPulse);
             data-tour="conversation"
             class="mt-6 grid gap-3 text-left sm:grid-cols-2"
           >
-            <TechnologyTourLauncher
+            <TechnologyTourLauncher v-if="activeProfile.features.tour"
               :pulse="shouldPulseTourLauncher"
               :seen="hasSeenTour"
               @open="technologyTour?.openTour()"
@@ -544,7 +545,7 @@ useEventListener(window, "keydown", stopTourPulse);
             class="hidden"
             @change="uploadDocument"
           />
-          <div data-tour="live" class="mb-2 flex justify-end px-1">
+          <div v-if="activeProfile.features.voice" data-tour="live" class="mb-2 flex justify-end px-1">
             <LiveConversation
               :api-base-url="apiBaseUrl"
               :document-ids="liveDocumentIds"
@@ -573,6 +574,7 @@ useEventListener(window, "keydown", stopTourPulse);
               </span>
               <div class="flex items-center gap-1">
                 <UButton
+                  v-if="activeProfile.features.documents"
                   data-tour="upload"
                   icon="i-lucide-paperclip"
                   type="button"
@@ -606,6 +608,7 @@ useEventListener(window, "keydown", stopTourPulse);
     <TechnologyTourHost
       ref="technologyTour"
       v-model:draft="input"
+      v-if="activeProfile.features.tour"
       @opened="markTourAsSeen"
       @completed="markTourAsCompleted"
     />

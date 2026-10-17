@@ -1,16 +1,18 @@
 import posthog from 'posthog-js'
+import { activeProfile } from '@/config/profile'
 
-const posthogKey = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN
-const posthogHost = import.meta.env.VITE_POSTHOG_HOST
+const posthogKey = activeProfile.analytics.projectToken || import.meta.env.VITE_POSTHOG_PROJECT_TOKEN
+const posthogHost = activeProfile.analytics.host || import.meta.env.VITE_POSTHOG_HOST
 
-export const analyticsEnabled = Boolean(posthogKey && posthogHost)
+export const analyticsEnabled = Boolean(activeProfile.analytics.enabled && posthogKey && posthogHost)
 
 export function initAnalytics() {
-  if (!posthogKey || !posthogHost) return
+  if (!analyticsEnabled) return
 
   posthog.init(posthogKey, {
     api_host: posthogHost,
     defaults: '2026-01-30',
+    loaded: client => client.register({ profile_id: activeProfile.id }),
   })
 }
 
@@ -20,7 +22,7 @@ export function captureEvent(
 ) {
   if (!analyticsEnabled) return
 
-  posthog.capture(eventName, properties)
+  posthog.capture(eventName, { ...properties, profile_id: activeProfile.id })
 }
 
 export function captureException(error: unknown) {

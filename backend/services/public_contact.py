@@ -1,13 +1,5 @@
-"""Public contact details Jeyker has authorized the assistant to share."""
-
+"""Only explicitly configured public contact details can be returned by tools."""
+from services.profile_service import get_profile
 
 def public_contact_details(profile_id: str = "jeyker") -> dict[str, str]:
-    from services.profile_service import get_profile
-    if get_profile(profile_id).id != "jeyker":
-        return {}
-    return {
-        "phone": "+34 624 179 342",
-        "email": "jeyker.salinas13@gmail.com",
-        "github": "https://github.com/JeykerSalinas",
-        "linkedin": "https://www.linkedin.com/in/jeyker-salinas-608486158/",
-    }
+    return dict(get_profile(profile_id).agent.contact)

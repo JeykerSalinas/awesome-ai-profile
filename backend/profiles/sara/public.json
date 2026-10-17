@@ -1,0 +1,65 @@
+{
+  "id": "sara",
+  "assistantName": "Sara",
+  "candidateName": "Sara",
+  "logo": "/sara_design/sara_logotipo.svg",
+  "avatar": null,
+  "avatarDark": null,
+  "texts": {
+    "en": {
+      "introduction": "Talk with Sara about her professional profile. Verified information will be added soon.",
+      "candidateRole": "Professional profile",
+      "documentTitle": "Sara · Professional assistant",
+      "availableForWork": "Professional profile",
+      "suggestions.0": "What is Sara’s experience?",
+      "suggestions.1": "What verified information is available?",
+      "suggestions.2": "How can I contact Sara?",
+      "demoNoticePurpose": "This assistant lets you explore Sara’s professional profile."
+    },
+    "es": {
+      "introduction": "Conversa con Sara sobre su perfil profesional. Su información se incorporará próximamente.",
+      "candidateRole": "Perfil profesional",
+      "documentTitle": "Sara · Asistente profesional",
+      "availableForWork": "Perfil profesional",
+      "suggestions.0": "¿Cuál es la experiencia de Sara?",
+      "suggestions.1": "¿Qué información verificada hay disponible?",
+      "suggestions.2": "¿Cómo puedo contactar a Sara?",
+      "demoNoticePurpose": "Este asistente permite explorar el perfil profesional de Sara."
+    }
+  },
+  "features": {
+    "tour": false
+  },
+  "colors": {
+    "--color-django-red": "#5B2D36",
+    "--color-django-brown": "#2E3A4A",
+    "--color-django-cream": "#F3EFE8",
+    "--color-django-sand": "#DCCFC2",
+    "--color-django-terracotta": "#A89F95",
+    "--color-django-burgundy": "#5B2D36",
+    "--color-django-paper": "#DCCFC2",
+    "--profile-light-page": "#DCCFC2",
+    "--profile-light-surface": "#F3EFE8",
+    "--profile-light-surface-soft": "#DCCFC2",
+    "--profile-light-heading": "#2E3A4A",
+    "--profile-light-copy": "#2E3A4A",
+    "--profile-light-muted": "#5B2D36",
+    "--profile-light-border": "#A89F95",
+    "--profile-light-primary": "#5B2D36",
+    "--profile-dark-page": "#2E3A4A",
+    "--profile-dark-surface": "#2E3A4A",
+    "--profile-dark-surface-soft": "#5B2D36",
+    "--profile-dark-heading": "#F3EFE8",
+    "--profile-dark-copy": "#F3EFE8",
+    "--profile-dark-muted": "#DCCFC2",
+    "--profile-dark-border": "#A89F95",
+    "--profile-dark-primary": "#DCCFC2",
+    "--ui-bg": "var(--django-surface)",
+    "--ui-bg-muted": "var(--django-surface-soft)",
+    "--ui-bg-elevated": "var(--django-surface-soft)",
+    "--ui-text": "var(--django-copy)",
+    "--ui-text-highlighted": "var(--django-heading)",
+    "--ui-text-muted": "var(--django-muted)",
+    "--ui-border": "var(--django-border)"
+  }
+}

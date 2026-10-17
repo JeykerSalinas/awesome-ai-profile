@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { personalize } from "@/config/profile";
+import { profileCopy } from "@/config/profile";
 import { computed } from "vue";
 import { useLocale } from "@/composables/useLocale";
 import { storyCopy } from "@/features/tour/story";
@@ -18,7 +18,7 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ open: [] }>();
 const { locale } = useLocale();
-const copy = computed(() => personalize(storyCopy[locale.value]));
+const copy = computed(() => profileCopy(storyCopy[locale.value], locale.value, 'tour'));
 </script>
 
 <template>
@@ -123,11 +123,11 @@ const copy = computed(() => personalize(storyCopy[locale.value]));
   0%,
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgb(229 109 88 / 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-django-terracotta) 0%, transparent);
   }
   50% {
     transform: scale(1.015);
-    box-shadow: 0 0 0 8px rgb(229 109 88 / 0.08);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-django-terracotta) 8%, transparent);
   }
 }
 @media (max-width: 420px) {

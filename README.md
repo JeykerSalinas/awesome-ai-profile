@@ -182,7 +182,7 @@ GEMINI_LIVE_MAX_TURNS=20
 LOG_LEVEL=INFO
 ```
 
-The frontend uses `VITE_API_BASE_URL` to locate FastAPI.
+The frontend uses `VITE_API_BASE_URL` to locate FastAPI. `VITE_PROFILE_ID` selects the build profile (`jeyker` or `sara`). Identity, copy, features, agent context, tools and service settings are configured in `backend/profiles/`. See the [profile configuration guide](docs/profiles.md) for defaults, overrides, secrets and deployment examples.
 
 ## Deployment
 
